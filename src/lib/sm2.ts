@@ -1,0 +1,45 @@
+export type Rating = "again" | "hard" | "good" | "easy";
+
+export interface ReviewState {
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
+}
+
+export interface SM2Result extends ReviewState {
+  dueDate: Date;
+}
+
+const MIN_EASE = 1.3;
+
+export function sm2(rating: Rating, current: ReviewState): SM2Result {
+  let { interval, easeFactor, repetitions } = current;
+
+  switch (rating) {
+    case "again":
+      interval = 1;
+      repetitions = 0;
+      easeFactor = Math.max(MIN_EASE, easeFactor - 0.2);
+      break;
+    case "hard":
+      interval = Math.max(1, Math.round(interval * 1.2));
+      easeFactor = Math.max(MIN_EASE, easeFactor - 0.15);
+      repetitions += 1;
+      break;
+    case "good":
+      interval = Math.max(1, Math.round(interval * easeFactor));
+      repetitions += 1;
+      break;
+    case "easy":
+      interval = Math.max(1, Math.round(interval * easeFactor * 1.3));
+      easeFactor = Math.min(5.0, easeFactor + 0.15);
+      repetitions += 1;
+      break;
+  }
+
+  const dueDate = new Date();
+  dueDate.setDate(dueDate.getDate() + interval);
+  dueDate.setHours(0, 0, 0, 0);
+
+  return { interval, easeFactor, repetitions, dueDate };
+}
