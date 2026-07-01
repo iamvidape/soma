@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Soma — Offline</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background: #1a1710;
+      color: #e8e2cc;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .card {
+      max-width: 360px;
+      width: 100%;
+    }
+    .label {
+      font-family: monospace;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: rgba(200,147,26,0.55);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: Georgia, serif;
+      font-size: 1.875rem;
+      font-weight: 700;
+      margin: 0 0 1rem;
+      color: #e8e2cc;
+    }
+    .rule {
+      height: 1px;
+      background: linear-gradient(to right, transparent, rgba(200,147,26,0.27), transparent);
+      margin: 1rem 0;
+    }
+    p {
+      font-size: 0.875rem;
+      color: #cfc49a;
+      line-height: 1.6;
+      margin: 0 0 1.5rem;
+    }
+    a {
+      display: inline-block;
+      font-family: monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      padding: 0.75rem 1.5rem;
+      background: #c8931a;
+      color: #1a1710;
+      text-decoration: none;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <p class="label">No connection</p>
+    <h1>You're offline.</h1>
+    <div class="rule"></div>
+    <p>Soma needs a connection to load this page for the first time. Once you've visited a page online it will be available offline.</p>
+    <a href="/">Go to home</a>
+  </div>
+</body>
+</html>

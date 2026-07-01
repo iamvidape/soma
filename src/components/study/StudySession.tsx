@@ -9,7 +9,7 @@ import { upsertReview } from "@/lib/local-db.helpers";
 import { sm2, type Rating, type ReviewState } from "@/lib/sm2";
 import { nanoid } from "nanoid";
 
-interface StudyCard {
+export interface StudyCard {
   id: string;
   deckId: string;
   deckName: string;
@@ -62,7 +62,7 @@ const RATING_CONFIG = {
   easy:  { label: "Easy",  key: "4", color: "var(--ink-400)",   border: "rgba(154,135,64,0.33)" },
 } as const;
 
-export function StudySession({ cards }: { cards: StudyCard[] }) {
+export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: string }) {
   const router = useRouter();
   const total = cards.length;
 
@@ -87,27 +87,22 @@ export function StudySession({ cards }: { cards: StudyCard[] }) {
 
       // Write to local Dexie immediately
       try {
-        const reviewId = nanoid();
-        const session = typeof window !== "undefined" ? await fetch("/api/auth/session").then((r) => r.json()) : null;
-        const userId = session?.user?.id;
-        if (userId) {
-          await upsertReview({
-            id: reviewId,
-            cardId: card.id,
-            userId,
-            dueDate: result.dueDate.getTime(),
-            interval: result.interval,
-            easeFactor: result.easeFactor,
-            repetitions: result.repetitions,
-            lastReviewedAt: Date.now(),
-          });
-        }
+        await upsertReview({
+          id: nanoid(),
+          cardId: card.id,
+          userId,
+          dueDate: result.dueDate.getTime(),
+          interval: result.interval,
+          easeFactor: result.easeFactor,
+          repetitions: result.repetitions,
+          lastReviewedAt: Date.now(),
+        });
       } catch {}
 
       // Sync to server in background
       saveReview(card.id, rating, current).catch(() => {});
     },
-    [card]
+    [card, userId]
   );
 
   // Keyboard shortcuts
