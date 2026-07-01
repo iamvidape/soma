@@ -180,7 +180,7 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
             />
           </div>
         </div>
-        <span className="progress-label">{state.index} / {total}</span>
+        <span className="progress-label">{state.index + 1} / {total}</span>
       </div>
 
       {/* Card scene */}
@@ -203,7 +203,6 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
               {/* Front */}
               <div className="flip-face flip-front" onClick={() => !state.isFlipped && dispatch({ type: "FLIP" })}>
                 <p className="card-content">{card.front}</p>
-                {!state.isFlipped && <p className="card-hint">Tap to reveal</p>}
               </div>
               {/* Back */}
               <div className="flip-face flip-back">

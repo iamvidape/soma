@@ -798,9 +798,9 @@ body::before {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 1rem;
-  padding: 2rem;
+  padding: 2.5rem 2rem 2rem;
   cursor: pointer;
 
   /* corner accents */

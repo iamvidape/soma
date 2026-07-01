@@ -179,9 +179,9 @@ export function DashboardClient({
       <div className="section-header">
         <span className="section-title">Your decks</span>
         <div className="section-actions">
-          <button className="text-action" onClick={toggleAll}>
-            {selected.size === decks.length && decks.length > 0 ? "Select none" : "Select all"}
-          </button>
+          {selected.size < decks.length && (
+            <button className="text-action" onClick={toggleAll}>Select all</button>
+          )}
           <button className="text-action amber" onClick={() => setShowNewDeck(true)}>+ New</button>
         </div>
       </div>
