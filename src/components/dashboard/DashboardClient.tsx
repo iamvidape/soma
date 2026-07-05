@@ -49,10 +49,10 @@ export function DashboardClient({
   // Sync client state when server refreshes (e.g. after import)
   useEffect(() => { setDecks(initialDecks); }, [initialDecks]);
 
-  // Restore deck selection from sessionStorage after hydration
+  // Restore deck selection from localStorage after hydration
   useEffect(() => {
     try {
-      const saved = sessionStorage.getItem("soma-selected-decks");
+      const saved = localStorage.getItem("soma-selected-decks");
       if (!saved) return;
       const ids: string[] = JSON.parse(saved);
       const validIds = new Set(initialDecks.map((d) => d.id));
@@ -70,7 +70,7 @@ export function DashboardClient({
     .reduce((sum, d) => sum + d.dueCount, 0);
 
   function saveSelection(next: Set<string>) {
-    try { sessionStorage.setItem("soma-selected-decks", JSON.stringify([...next])); } catch {}
+    try { localStorage.setItem("soma-selected-decks", JSON.stringify([...next])); } catch {}
   }
 
   function toggleDeck(id: string) {
