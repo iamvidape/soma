@@ -7,20 +7,48 @@ interface ImportResult {
   cardCount: number;
 }
 
-export function ImportZone({ onImported }: { onImported: () => void }) {
+interface DeckOption {
+  id: string;
+  name: string;
+}
+
+type Status = "idle" | "picked" | "loading" | "done" | "error";
+
+export function ImportZone({ decks, onImported }: { decks: DeckOption[]; onImported: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [status, setStatus] = useState<Status>("idle");
   const [results, setResults] = useState<ImportResult[]>([]);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
 
-  async function handleFile(file: File) {
-    if (!file.name.endsWith(".apkg")) {
-      setError("File must be a .apkg file");
-      setStatus("error");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [targetDeckId, setTargetDeckId] = useState("");
+  const [newDeckName, setNewDeckName] = useState("");
+
+  function reset() {
+    setStatus("idle");
+    setResults([]);
+    setError("");
+    setPendingFile(null);
+    setTargetDeckId("");
+    setNewDeckName("");
+  }
+
+  function handleFile(file: File) {
+    if (file.name.endsWith(".apkg")) {
+      uploadApkg(file);
       return;
     }
+    if (file.name.endsWith(".txt")) {
+      setPendingFile(file);
+      setStatus("picked");
+      return;
+    }
+    setError("File must be a .apkg or .txt file");
+    setStatus("error");
+  }
 
+  async function uploadApkg(file: File) {
     setStatus("loading");
     setError("");
     setResults([]);
@@ -39,6 +67,42 @@ export function ImportZone({ onImported }: { onImported: () => void }) {
       }
 
       setResults(data.imported);
+      setStatus("done");
+      onImported();
+    } catch {
+      setError("Network error — please try again");
+      setStatus("error");
+    }
+  }
+
+  async function uploadText() {
+    if (!pendingFile) return;
+    const name = newDeckName.trim();
+    if (!targetDeckId && !name) {
+      setError("Enter a name for the new deck");
+      setStatus("error");
+      return;
+    }
+
+    setStatus("loading");
+    setError("");
+
+    const form = new FormData();
+    form.append("file", pendingFile);
+    if (targetDeckId) form.append("deckId", targetDeckId);
+    else form.append("deckName", name);
+
+    try {
+      const res = await fetch("/api/import/text", { method: "POST", body: form });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Import failed");
+        setStatus("error");
+        return;
+      }
+
+      setResults([data.imported]);
       setStatus("done");
       onImported();
     } catch {
@@ -70,21 +134,54 @@ export function ImportZone({ onImported }: { onImported: () => void }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".apkg"
+        accept=".apkg,.txt"
         className="hidden"
         onChange={onInputChange}
       />
 
       {status === "idle" && (
         <>
-          <p className="import-label">Import an Anki deck</p>
+          <p className="import-label">Import cards</p>
           <p className="import-sub">
-            Drop a .apkg file or{" "}
+            Drop an Anki .apkg or a text file (front;back per line), or{" "}
             <span className="amber-link" onClick={() => inputRef.current?.click()}>
               browse
             </span>
           </p>
         </>
+      )}
+
+      {status === "picked" && pendingFile && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <p className="import-label">{pendingFile.name}</p>
+          <p className="import-sub" style={{ marginBottom: "0.5rem" }}>
+            One <code>front;back</code> pair per line
+          </p>
+          <select
+            className="field-input"
+            value={targetDeckId}
+            onChange={(e) => setTargetDeckId(e.target.value)}
+            style={{ width: "100%" }}
+          >
+            <option value="">+ New deck</option>
+            {decks.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          {!targetDeckId && (
+            <input
+              className="field-input"
+              placeholder="Deck name…"
+              value={newDeckName}
+              onChange={(e) => setNewDeckName(e.target.value)}
+              style={{ width: "100%", marginTop: "0.5rem" }}
+            />
+          )}
+          <div className="inline-form-actions" style={{ marginTop: "0.75rem" }}>
+            <button type="button" className="app-btn-primary sm" onClick={uploadText}>Import</button>
+            <button type="button" className="app-btn-ghost" onClick={reset}>Cancel</button>
+          </div>
+        </div>
       )}
 
       {status === "loading" && (
@@ -102,7 +199,7 @@ export function ImportZone({ onImported }: { onImported: () => void }) {
           <p
             className="amber-link import-sub"
             style={{ marginTop: "0.5rem" }}
-            onClick={() => { setStatus("idle"); setResults([]); }}
+            onClick={reset}
           >
             Import another
           </p>
@@ -115,7 +212,7 @@ export function ImportZone({ onImported }: { onImported: () => void }) {
           <p
             className="amber-link import-sub"
             style={{ marginTop: "0.25rem" }}
-            onClick={() => setStatus("idle")}
+            onClick={reset}
           >
             Try again
           </p>

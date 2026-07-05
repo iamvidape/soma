@@ -255,7 +255,7 @@ export function DashboardClient({
         })}
       </div>
 
-      <ImportZone onImported={() => router.refresh()} />
+      <ImportZone decks={decks.map((d) => ({ id: d.id, name: d.name }))} onImported={() => router.refresh()} />
     </div>
   );
 }
