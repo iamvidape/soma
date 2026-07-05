@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { calculateStreak, bucketByDay } from "@/lib/stats";
+import { cutoffDayIndex, dayIndexToDate } from "@/lib/day-cutoff";
 import { StatsClient, type UpcomingBucket } from "@/components/stats/StatsClient";
 
 const UPCOMING_DAYS = 14;
@@ -13,8 +14,7 @@ function formatUpcomingLabel(date: Date, offset: number): string {
 
 async function getStatsData(userId: string) {
   const now = new Date();
-  const todayUTC = new Date();
-  todayUTC.setUTCHours(0, 0, 0, 0);
+  const todayIdx = cutoffDayIndex(now);
 
   const [reviewDates, cards] = await Promise.all([
     db.review.findMany({
@@ -40,32 +40,26 @@ async function getStatsData(userId: string) {
 
   const buckets: UpcomingBucket[] = [];
   for (let i = 0; i < UPCOMING_DAYS; i++) {
-    const d = new Date(todayUTC);
-    d.setUTCDate(d.getUTCDate() + i);
+    const d = dayIndexToDate(todayIdx + i);
     buckets.push({
-      key: i === 0 ? "now" : d.toISOString().split("T")[0],
+      key: i === 0 ? "now" : d.toISOString(),
       label: formatUpcomingLabel(d, i),
       count: 0,
       cards: [],
     });
   }
-  const bucketIndexByKey = new Map(buckets.map((b, i) => [b.key, i]));
 
   for (const card of cards) {
     const due = card.reviews[0]?.dueDate ?? null;
     const entry = { id: card.id, front: card.front, back: card.back, deckName: card.deck.name };
 
-    let key = "now";
-    if (due && due > now) {
-      const dueDay = new Date(due);
-      dueDay.setUTCHours(0, 0, 0, 0);
-      key = dueDay.toISOString().split("T")[0];
-    }
-
-    const idx = bucketIndexByKey.get(key);
-    if (idx !== undefined) {
-      buckets[idx].count++;
-      buckets[idx].cards.push(entry);
+    // Cards not yet due (or with no review at all) land in "Now"; everything
+    // else buckets by how many cutoff-days out its due date falls, dropping
+    // anything beyond the window shown.
+    const offset = due && due > now ? Math.max(0, cutoffDayIndex(due) - todayIdx) : 0;
+    if (offset < UPCOMING_DAYS) {
+      buckets[offset].count++;
+      buckets[offset].cards.push(entry);
     }
   }
 

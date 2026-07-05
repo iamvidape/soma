@@ -1,3 +1,5 @@
+import { cutoffBoundary } from "./day-cutoff";
+
 export type Rating = "again" | "hard" | "good" | "easy";
 
 export interface ReviewState {
@@ -37,9 +39,7 @@ export function sm2(rating: Rating, current: ReviewState): SM2Result {
       break;
   }
 
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + interval);
-  dueDate.setHours(0, 0, 0, 0);
+  const dueDate = cutoffBoundary(new Date(), interval);
 
   return { interval, easeFactor, repetitions, dueDate };
 }

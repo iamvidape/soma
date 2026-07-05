@@ -1,12 +1,12 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { calculateStreak } from "@/lib/stats";
+import { cutoffBoundary } from "@/lib/day-cutoff";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 
 async function getDashboardData(userId: string) {
   const now = new Date();
-  const todayMidnight = new Date();
-  todayMidnight.setUTCHours(0, 0, 0, 0);
+  const todayCutoff = cutoffBoundary(now, 0);
 
   const [decks, allCards, studiedToday, reviewDates] = await Promise.all([
     db.deck.findMany({
@@ -26,7 +26,7 @@ async function getDashboardData(userId: string) {
       },
     }),
     db.review.count({
-      where: { userId, lastReviewedAt: { gte: todayMidnight } },
+      where: { userId, lastReviewedAt: { gte: todayCutoff } },
     }),
     db.review.findMany({
       where: { userId, lastReviewedAt: { not: null } },
