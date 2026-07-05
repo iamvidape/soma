@@ -274,19 +274,18 @@ body::before {
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--ink-200);
+  color: var(--ink-400);
   text-decoration: none;
   background: none;
   border: none;
-  border-radius: 8px;
   cursor: pointer;
   padding: 0.75rem 0.5rem;
   min-width: 4rem;
   min-height: 44px;
-  transition: color 0.15s, background-color 0.15s;
+  transition: color 0.15s;
 }
-.bottom-nav-item.active { color: var(--amber); background: rgba(200, 147, 26, 0.16); }
-.bottom-nav-item:hover:not(.active) { color: var(--amber-soft); }
+.bottom-nav-item.active { color: var(--amber-soft); }
+.bottom-nav-item:hover:not(.active) { color: var(--ink-200); }
 
 .nav-icon { width: 1rem; height: 1rem; }
 
