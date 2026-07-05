@@ -106,8 +106,36 @@ export async function deleteCard(id: string) {
 
 // ── Review writes (SM-2 result) ───────────────────────────────────────────────
 
+export async function getReview(cardId: string, userId: string): Promise<LocalReview | null> {
+  const db = getLocalDB();
+  const review = await db.reviews.where("[cardId+userId]").equals([cardId, userId]).first();
+  return review ?? null;
+}
+
+// Upserts by (cardId, userId): reuses the existing row's id if one exists so a
+// card's review history stays a single row instead of accumulating one row
+// per rating under a fresh nanoid.
 export async function upsertReview(review: Omit<LocalReview, "syncedAt">) {
   const db = getLocalDB();
-  await db.reviews.put({ ...review, syncedAt: null });
-  await enqueue("update", "Review", review.id, review);
+  const existing = await getReview(review.cardId, review.userId);
+  const id = existing?.id ?? review.id;
+  const full: LocalReview = { ...review, id, syncedAt: null };
+  await db.reviews.put(full);
+  await enqueue("update", "Review", id, full);
+}
+
+// Reverts a review to a prior snapshot (or removes it if it didn't exist
+// before), used to undo a rating given during a study session.
+export async function undoReview(cardId: string, userId: string, previous: LocalReview | null) {
+  const db = getLocalDB();
+  if (!previous) {
+    const existing = await getReview(cardId, userId);
+    if (existing) {
+      await db.reviews.delete(existing.id);
+      await enqueue("delete", "Review", existing.id, { id: existing.id });
+    }
+    return;
+  }
+  await db.reviews.put({ ...previous, syncedAt: null });
+  await enqueue("update", "Review", previous.id, previous);
 }

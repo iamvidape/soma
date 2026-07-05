@@ -44,3 +44,39 @@ export async function saveReview(
 
   return result;
 }
+
+export interface ReviewSnapshot {
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
+  dueDate: number; // ms timestamp
+  lastReviewedAt: number | null; // ms timestamp
+}
+
+// Reverts a card's review row to a prior snapshot (or deletes it if it had no
+// review before), used to undo a rating given during a study session.
+export async function undoReview(cardId: string, previous: ReviewSnapshot | null) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = session.user.id;
+
+  if (!previous) {
+    await db.review.deleteMany({ where: { cardId, userId } });
+    revalidatePath("/");
+    return;
+  }
+
+  await db.review.updateMany({
+    where: { cardId, userId },
+    data: {
+      dueDate: new Date(previous.dueDate),
+      interval: previous.interval,
+      easeFactor: previous.easeFactor,
+      repetitions: previous.repetitions,
+      lastReviewedAt: previous.lastReviewedAt ? new Date(previous.lastReviewedAt) : null,
+      syncedAt: null,
+    },
+  });
+
+  revalidatePath("/");
+}

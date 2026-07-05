@@ -607,10 +607,12 @@ body::before {
   letter-spacing: 0.1em;
   color: var(--ink-400);
   text-decoration: none;
+  background: none;
   padding: 0.5rem 0.75rem;
   border: 1.5px solid var(--ink-600);
   border-radius: 2px;
   white-space: nowrap;
+  cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
 .back-btn:hover { border-color: var(--ink-400); color: var(--ink-50); }

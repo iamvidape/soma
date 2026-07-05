@@ -4,8 +4,9 @@ import { useEffect, useReducer, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { saveReview } from "@/app/actions/review";
-import { upsertReview } from "@/lib/local-db.helpers";
+import { saveReview, undoReview as undoReviewServer, type ReviewSnapshot } from "@/app/actions/review";
+import { upsertReview, getReview, undoReview as undoReviewLocal } from "@/lib/local-db.helpers";
+import type { LocalReview } from "@/lib/local-db";
 import { sm2, type Rating, type ReviewState } from "@/lib/sm2";
 import { nanoid } from "nanoid";
 
@@ -18,24 +19,33 @@ export interface StudyCard {
   review: ReviewState | null;
 }
 
+interface HistoryEntry {
+  index: number;
+  rating: Rating;
+  previousReview: LocalReview | null;
+}
+
 interface SessionState {
   index: number;
   isFlipped: boolean;
   counts: Record<Rating, number>;
   done: boolean;
   direction: 1 | -1;
+  history: HistoryEntry[];
 }
 
 type Action =
   | { type: "FLIP" }
-  | { type: "RATE"; rating: Rating }
+  | { type: "RATE"; rating: Rating; previousReview: LocalReview | null }
+  | { type: "UNDO" }
   | { type: "RESET" };
 
 function reducer(state: SessionState, action: Action): SessionState {
   switch (action.type) {
     case "FLIP":
       return { ...state, isFlipped: true };
-    case "RATE":
+    case "RATE": {
+      const entry: HistoryEntry = { index: state.index, rating: action.rating, previousReview: action.previousReview };
       return {
         ...state,
         isFlipped: false,
@@ -43,9 +53,24 @@ function reducer(state: SessionState, action: Action): SessionState {
         done: state.index + 1 >= (state as unknown as { total: number }).total,
         counts: { ...state.counts, [action.rating]: state.counts[action.rating] + 1 },
         direction: 1,
+        history: [...state.history, entry],
       };
+    }
+    case "UNDO": {
+      const last = state.history[state.history.length - 1];
+      if (!last) return state;
+      return {
+        ...state,
+        index: last.index,
+        isFlipped: false,
+        done: false,
+        counts: { ...state.counts, [last.rating]: Math.max(0, state.counts[last.rating] - 1) },
+        direction: -1,
+        history: state.history.slice(0, -1),
+      };
+    }
     case "RESET":
-      return { index: 0, isFlipped: false, counts: { again: 0, hard: 0, good: 0, easy: 0 }, done: false, direction: 1 };
+      return { index: 0, isFlipped: false, counts: { again: 0, hard: 0, good: 0, easy: 0 }, done: false, direction: 1, history: [] };
   }
 }
 
@@ -72,15 +97,22 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
       if (a.type === "RATE") next.done = s.index + 1 >= total;
       return next;
     },
-    { index: 0, isFlipped: false, counts: { again: 0, hard: 0, good: 0, easy: 0 }, done: false, direction: 1 }
+    { index: 0, isFlipped: false, counts: { again: 0, hard: 0, good: 0, easy: 0 }, done: false, direction: 1, history: [] }
   );
 
   const card = cards[state.index];
+  const canUndo = state.history.length > 0;
 
   const rate = useCallback(
     async (rating: Rating) => {
       if (!card) return;
-      dispatch({ type: "RATE", rating });
+
+      // Snapshot whatever's currently persisted for this card so an undo can
+      // restore it exactly (or remove the row if it never had a review).
+      let previousReview: LocalReview | null = null;
+      try { previousReview = await getReview(card.id, userId); } catch {}
+
+      dispatch({ type: "RATE", rating, previousReview });
 
       const current = card.review;
       const result = sm2(rating, current ?? { interval: 1, easeFactor: 2.5, repetitions: 0 });
@@ -105,11 +137,35 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
     [card, userId]
   );
 
+  const undo = useCallback(async () => {
+    const entry = state.history[state.history.length - 1];
+    if (!entry) return;
+    const undoneCard = cards[entry.index];
+    if (!undoneCard) return;
+
+    dispatch({ type: "UNDO" });
+
+    const previous = entry.previousReview;
+    try { await undoReviewLocal(undoneCard.id, userId, previous); } catch {}
+
+    const snapshot: ReviewSnapshot | null = previous
+      ? {
+          interval: previous.interval,
+          easeFactor: previous.easeFactor,
+          repetitions: previous.repetitions,
+          dueDate: previous.dueDate,
+          lastReviewedAt: previous.lastReviewedAt,
+        }
+      : null;
+    undoReviewServer(undoneCard.id, snapshot).catch(() => {});
+  }, [state.history, cards, userId]);
+
   // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement) return;
       if (e.code === "Space") { e.preventDefault(); if (!state.isFlipped) dispatch({ type: "FLIP" }); }
+      if (e.key === "u" || e.key === "U") { if (canUndo) undo(); }
       if (state.isFlipped) {
         if (e.key === "1") rate("again");
         if (e.key === "2") rate("hard");
@@ -119,7 +175,7 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [state.isFlipped, rate]);
+  }, [state.isFlipped, rate, undo, canUndo]);
 
   if (total === 0) {
     return (
@@ -157,6 +213,12 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
           </div>
         </div>
 
+        {canUndo && (
+          <button className="back-btn" style={{ marginBottom: "0.75rem" }} onClick={undo}>
+            ↺ Undo last rating
+          </button>
+        )}
+
         <div className="rule my-5" />
         <Link href="/" className="begin-btn" style={{ textAlign: "center" }}>Back to decks</Link>
       </div>
@@ -181,6 +243,9 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
           </div>
         </div>
         <span className="progress-label">{state.index + 1} / {total}</span>
+        {canUndo && (
+          <button className="back-btn" onClick={undo} title="Undo last rating (U)">↺ Undo</button>
+        )}
       </div>
 
       {/* Card scene */}
