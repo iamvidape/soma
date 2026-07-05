@@ -13,6 +13,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    // e2e/ is Playwright test code, not React — its fixtures take a
+    // parameter literally named `use`, which react-hooks's rules-of-hooks
+    // mistakes for a React hook call.
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

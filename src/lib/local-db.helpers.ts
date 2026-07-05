@@ -39,11 +39,11 @@ export async function seedReviews(reviews: LocalReview[]) {
 
 // ── Deck writes ───────────────────────────────────────────────────────────────
 
-export async function createDeck(userId: string, name: string, description: string | null = null): Promise<LocalDeck> {
+export async function createDeck(id: string, userId: string, name: string, description: string | null = null): Promise<LocalDeck> {
   const db = getLocalDB();
   const now = Date.now();
   const deck: LocalDeck = {
-    id: nanoid(),
+    id,
     userId,
     name,
     description,
@@ -73,11 +73,11 @@ export async function deleteDeck(id: string) {
 
 // ── Card writes ───────────────────────────────────────────────────────────────
 
-export async function createCard(deckId: string, front: string, back: string): Promise<LocalCard> {
+export async function createCard(id: string, deckId: string, front: string, back: string): Promise<LocalCard> {
   const db = getLocalDB();
   const now = Date.now();
   const card: LocalCard = {
-    id: nanoid(),
+    id,
     deckId,
     front,
     back,

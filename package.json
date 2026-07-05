@@ -7,7 +7,12 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:db:up": "docker rm -f soma-e2e-db >/dev/null 2>&1; docker run -d --name soma-e2e-db -e POSTGRES_USER=soma -e POSTGRES_PASSWORD=soma -e POSTGRES_DB=soma_test -p 5433:5432 --tmpfs /var/lib/postgresql/data postgres:16-alpine >/dev/null && until docker exec soma-e2e-db pg_isready -U soma -d soma_test >/dev/null 2>&1; do sleep 0.5; done",
+    "test:e2e:db:down": "docker rm -f soma-e2e-db >/dev/null 2>&1 || true"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -29,6 +34,7 @@
     "serwist": "^9.5.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",

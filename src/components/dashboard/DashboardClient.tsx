@@ -105,15 +105,15 @@ export function DashboardClient({
     setNewDeckName("");
     setShowNewDeck(false);
 
-    try { await localCreateDeck(userId, name); } catch {}
+    try { await localCreateDeck(id, userId, name); } catch {}
 
     startTransition(async () => {
       try {
         await createDeck(id, name, null);
+        router.refresh();
       } catch {
         triggerSync();
       }
-      router.refresh();
     });
   }
 
@@ -125,10 +125,10 @@ export function DashboardClient({
     startTransition(async () => {
       try {
         await deleteDeck(id);
+        router.refresh();
       } catch {
         triggerSync();
       }
-      router.refresh();
     });
   }
 

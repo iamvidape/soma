@@ -90,14 +90,14 @@ export function DeckDetailClient({
     setBack("");
     setShowAddCard(false);
 
-    try { await localCreateCard(deckId, f, b); } catch {}
+    try { await localCreateCard(id, deckId, f, b); } catch {}
     startTransition(async () => {
       try {
         await createCard(id, deckId, f, b);
+        router.refresh();
       } catch {
         triggerSync();
       }
-      router.refresh();
     });
   }
 
@@ -115,10 +115,10 @@ export function DeckDetailClient({
     startTransition(async () => {
       try {
         await updateCard(editingId, f, b);
+        router.refresh();
       } catch {
         triggerSync();
       }
-      router.refresh();
     });
   }
 
@@ -139,10 +139,10 @@ export function DeckDetailClient({
     startTransition(async () => {
       try {
         await deleteCard(id);
+        router.refresh();
       } catch {
         triggerSync();
       }
-      router.refresh();
     });
   }
 
@@ -154,8 +154,12 @@ export function DeckDetailClient({
     setEditingName(false);
     try { await localUpdateDeck(deckId, { name }); } catch {}
     startTransition(async () => {
-      try { await updateDeck(deckId, name, deck.description); } catch { triggerSync(); }
-      router.refresh();
+      try {
+        await updateDeck(deckId, name, deck.description);
+        router.refresh();
+      } catch {
+        triggerSync();
+      }
     });
   }
 
