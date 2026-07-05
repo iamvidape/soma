@@ -73,10 +73,17 @@ function reducer(state: SessionState, action: Action): SessionState {
   }
 }
 
+// Forward (rating a card): rise from the stack, then exit left.
+// Backward (undo): mirror of the same motion — the restored card slides
+// back in from the left, and whatever it's replacing sinks back into the
+// stack instead of exiting left.
+const RISE_FROM_STACK = { y: 8, scale: 0.96, opacity: 0, x: 0, rotate: 0 };
+const SLIDE_OUT_LEFT = { x: "-115%", rotate: -4, opacity: 0, y: 0, scale: 1 };
+
 const CARD_VARIANTS = {
-  enter:  { y: 8, scale: 0.96, opacity: 0 },
-  center: { y: 0, scale: 1,    opacity: 1 },
-  exit:   { x: "-115%", rotate: -4, opacity: 0 },
+  enter: (direction: 1 | -1) => (direction === 1 ? RISE_FROM_STACK : SLIDE_OUT_LEFT),
+  center: { x: 0, y: 0, scale: 1, opacity: 1, rotate: 0 },
+  exit: (direction: 1 | -1) => (direction === 1 ? SLIDE_OUT_LEFT : RISE_FROM_STACK),
 };
 
 const RATING_CONFIG = {
@@ -265,10 +272,11 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
         {/* Decorative stack card */}
         <div className="card-stack-deco" />
 
-        <AnimatePresence mode="popLayout" initial={false}>
+        <AnimatePresence mode="popLayout" initial={false} custom={state.direction}>
           <motion.div
             key={card.id}
             className="card-slot"
+            custom={state.direction}
             variants={CARD_VARIANTS}
             initial="enter"
             animate="center"
