@@ -37,6 +37,53 @@ export async function seedReviews(reviews: LocalReview[]) {
   await db.reviews.bulkPut(reviews);
 }
 
+// Reconciles Dexie's reviews against the server's copy, healing duplicate
+// rows left over from before saveReview/upsertReview shared a single id for
+// a card's first-ever review (a client-generated id and a separately
+// server-generated one, never reconciled, could both end up in Dexie for
+// the same card — whichever one a later rating's getReview() lookup happens
+// not to touch stays frozen at stale data and can wrongly look "due").
+// For each card, keeps whichever candidate (server row, or a differently-id'd
+// local row) has the most recent lastReviewedAt, deletes the rest, and
+// writes the winner under the server's id so future reseeds stay aligned.
+export async function reconcileReviews(userId: string, serverReviews: LocalReview[]) {
+  const db = getLocalDB();
+  const existing = await db.reviews.where("userId").equals(userId).toArray();
+
+  const existingByCard = new Map<string, LocalReview[]>();
+  for (const r of existing) {
+    const list = existingByCard.get(r.cardId) ?? [];
+    list.push(r);
+    existingByCard.set(r.cardId, list);
+  }
+
+  const idsToDelete: string[] = [];
+  const rowsToPut: LocalReview[] = [];
+  const handledCardIds = new Set<string>();
+
+  for (const server of serverReviews) {
+    handledCardIds.add(server.cardId);
+    const localRows = existingByCard.get(server.cardId) ?? [];
+    const stale = localRows.filter((r) => r.id !== server.id);
+    const winner = [server, ...stale].reduce((a, b) =>
+      (b.lastReviewedAt ?? 0) > (a.lastReviewedAt ?? 0) ? b : a
+    );
+    for (const r of stale) idsToDelete.push(r.id);
+    rowsToPut.push({ ...winner, id: server.id });
+  }
+
+  // Cards the server has no review for yet (created fully offline, not
+  // synced) are left alone beyond deduping any local-only duplicates.
+  for (const [cardId, rows] of existingByCard) {
+    if (handledCardIds.has(cardId) || rows.length <= 1) continue;
+    const winner = rows.reduce((a, b) => (b.lastReviewedAt ?? 0) > (a.lastReviewedAt ?? 0) ? b : a);
+    for (const r of rows) if (r.id !== winner.id) idsToDelete.push(r.id);
+  }
+
+  if (idsToDelete.length > 0) await db.reviews.bulkDelete(idsToDelete);
+  if (rowsToPut.length > 0) await db.reviews.bulkPut(rowsToPut);
+}
+
 // ── Deck writes ───────────────────────────────────────────────────────────────
 
 export async function createDeck(id: string, userId: string, name: string, description: string | null = null): Promise<LocalDeck> {
@@ -114,14 +161,19 @@ export async function getReview(cardId: string, userId: string): Promise<LocalRe
 
 // Upserts by (cardId, userId): reuses the existing row's id if one exists so a
 // card's review history stays a single row instead of accumulating one row
-// per rating under a fresh nanoid.
-export async function upsertReview(review: Omit<LocalReview, "syncedAt">) {
+// per rating under a fresh nanoid. Returns the id actually written, so the
+// caller can pass that same id to the server and keep both sides aligned —
+// otherwise the server mints its own id for a brand-new review, and the next
+// reseed from Postgres adds a second, disconnected Dexie row for the same
+// card instead of updating this one.
+export async function upsertReview(review: Omit<LocalReview, "syncedAt">): Promise<string> {
   const db = getLocalDB();
   const existing = await getReview(review.cardId, review.userId);
   const id = existing?.id ?? review.id;
   const full: LocalReview = { ...review, id, syncedAt: null };
   await db.reviews.put(full);
   await enqueue("update", "Review", id, full);
+  return id;
 }
 
 // Reverts a review to a prior snapshot (or removes it if it didn't exist

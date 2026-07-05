@@ -3,10 +3,15 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { sm2, type Rating, type ReviewState } from "@/lib/sm2";
-import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 
+// `id` is the id the client already wrote to its local Dexie row — reusing
+// it here (instead of minting a fresh one) keeps client and server on the
+// exact same row id for a card's very first review. Otherwise the next
+// reseed from Postgres would add a second, disconnected Dexie row for that
+// card instead of updating the client's existing one.
 export async function saveReview(
+  id: string,
   cardId: string,
   rating: Rating,
   current: ReviewState | null,
@@ -21,7 +26,7 @@ export async function saveReview(
   await db.review.upsert({
     where: { cardId_userId: { cardId, userId } },
     create: {
-      id: nanoid(),
+      id,
       cardId,
       userId,
       dueDate: result.dueDate,

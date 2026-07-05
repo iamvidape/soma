@@ -126,9 +126,10 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
         try { previousReview = await getReview(card.id, userId); } catch {}
         previousReviewsRef.current.set(ratedIndex, previousReview);
 
+        let reviewId = nanoid();
         try {
-          await upsertReview({
-            id: nanoid(),
+          reviewId = await upsertReview({
+            id: reviewId,
             cardId: card.id,
             userId,
             dueDate: result.dueDate.getTime(),
@@ -139,8 +140,9 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
           });
         } catch {}
 
-        // Sync to server in background
-        saveReview(card.id, rating, current).catch(() => {});
+        // Sync to server in background — reuse the same id Dexie just wrote
+        // so a brand-new review doesn't get a second, disconnected id server-side.
+        saveReview(reviewId, card.id, rating, current).catch(() => {});
       })();
     },
     [card, state.index, userId]

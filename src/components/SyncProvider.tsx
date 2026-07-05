@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { SyncContext, type SyncStatus } from "@/contexts/SyncContext";
 import { getLocalDB, type LocalDeck, type LocalCard, type LocalReview } from "@/lib/local-db";
+import { reconcileReviews } from "@/lib/local-db.helpers";
 
 interface ApiData {
   decks: Array<{
@@ -109,7 +110,7 @@ export function SyncProvider({ children, userId }: { children: React.ReactNode; 
         await Promise.all([
           db.decks.bulkPut(localDecks),
           db.cards.bulkPut(localCards),
-          db.reviews.bulkPut(localReviews),
+          reconcileReviews(userId, localReviews),
         ]);
 
         if (!cancelled) await flushQueue();
