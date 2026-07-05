@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { sm2, type Rating, type ReviewState } from "@/lib/sm2";
 import { nanoid } from "nanoid";
+import { revalidatePath } from "next/cache";
 
 export async function saveReview(
   cardId: string,
@@ -38,6 +39,8 @@ export async function saveReview(
       syncedAt: null,
     },
   });
+
+  revalidatePath("/");
 
   return result;
 }

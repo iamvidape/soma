@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 import type { SyncOperation, SyncTable } from "@/lib/local-db";
 
 interface SyncEntry {
@@ -111,6 +112,10 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       failed.push({ id: entry.id, error: err instanceof Error ? err.message : "Unknown error" });
     }
+  }
+
+  if (processed.length > 0) {
+    revalidatePath("/");
   }
 
   return NextResponse.json({ processed, failed });

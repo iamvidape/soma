@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { SyncContext, type SyncStatus } from "@/contexts/SyncContext";
 import { getLocalDB, type LocalDeck, type LocalCard, type LocalReview } from "@/lib/local-db";
 
@@ -21,6 +22,7 @@ interface ApiData {
 }
 
 export function SyncProvider({ children, userId }: { children: React.ReactNode; userId: string }) {
+  const router = useRouter();
   const [status, setStatus] = useState<SyncStatus>("syncing");
   const [queueLength, setQueueLength] = useState(0);
   const isSyncing = useRef(false);
@@ -51,6 +53,9 @@ export function SyncProvider({ children, userId }: { children: React.ReactNode; 
       const { processed } = await res.json() as { processed: string[]; failed: { id: string; error: string }[] };
       if (processed.length > 0) {
         await db.syncQueue.bulkDelete(processed);
+        // A successful sync may have changed server-computed values (e.g. due
+        // counts on the dashboard) — refresh so the UI doesn't show stale data.
+        router.refresh();
       }
 
       const remaining = await db.syncQueue.count();
@@ -61,7 +66,7 @@ export function SyncProvider({ children, userId }: { children: React.ReactNode; 
     } finally {
       isSyncing.current = false;
     }
-  }, []);
+  }, [router]);
 
   // Seed Dexie from server on mount, then flush queue
   useEffect(() => {
