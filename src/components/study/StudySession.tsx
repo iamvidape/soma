@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useCallback } from "react";
+import { useEffect, useReducer, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -22,7 +22,6 @@ export interface StudyCard {
 interface HistoryEntry {
   index: number;
   rating: Rating;
-  previousReview: LocalReview | null;
 }
 
 interface SessionState {
@@ -36,7 +35,7 @@ interface SessionState {
 
 type Action =
   | { type: "FLIP" }
-  | { type: "RATE"; rating: Rating; previousReview: LocalReview | null }
+  | { type: "RATE"; rating: Rating }
   | { type: "UNDO" }
   | { type: "RESET" };
 
@@ -45,7 +44,7 @@ function reducer(state: SessionState, action: Action): SessionState {
     case "FLIP":
       return { ...state, isFlipped: true };
     case "RATE": {
-      const entry: HistoryEntry = { index: state.index, rating: action.rating, previousReview: action.previousReview };
+      const entry: HistoryEntry = { index: state.index, rating: action.rating };
       return {
         ...state,
         isFlipped: false,
@@ -103,38 +102,48 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
   const card = cards[state.index];
   const canUndo = state.history.length > 0;
 
+  // Snapshots of each card's review row from right before it was rated, keyed
+  // by session index, kept out of React state so capturing them doesn't
+  // delay the RATE dispatch (which needs to fire synchronously — AnimatePresence
+  // shares `isFlipped` across the exiting and entering card, so any delay
+  // widens the window where both are visibly flipped at once).
+  const previousReviewsRef = useRef(new Map<number, LocalReview | null>());
+
   const rate = useCallback(
-    async (rating: Rating) => {
+    (rating: Rating) => {
       if (!card) return;
+      const ratedIndex = state.index;
 
-      // Snapshot whatever's currently persisted for this card so an undo can
-      // restore it exactly (or remove the row if it never had a review).
-      let previousReview: LocalReview | null = null;
-      try { previousReview = await getReview(card.id, userId); } catch {}
-
-      dispatch({ type: "RATE", rating, previousReview });
+      dispatch({ type: "RATE", rating });
 
       const current = card.review;
       const result = sm2(rating, current ?? { interval: 1, easeFactor: 2.5, repetitions: 0 });
 
-      // Write to local Dexie immediately
-      try {
-        await upsertReview({
-          id: nanoid(),
-          cardId: card.id,
-          userId,
-          dueDate: result.dueDate.getTime(),
-          interval: result.interval,
-          easeFactor: result.easeFactor,
-          repetitions: result.repetitions,
-          lastReviewedAt: Date.now(),
-        });
-      } catch {}
+      (async () => {
+        // Snapshot whatever's currently persisted for this card so an undo
+        // can restore it exactly (or remove the row if it never had a review).
+        let previousReview: LocalReview | null = null;
+        try { previousReview = await getReview(card.id, userId); } catch {}
+        previousReviewsRef.current.set(ratedIndex, previousReview);
 
-      // Sync to server in background
-      saveReview(card.id, rating, current).catch(() => {});
+        try {
+          await upsertReview({
+            id: nanoid(),
+            cardId: card.id,
+            userId,
+            dueDate: result.dueDate.getTime(),
+            interval: result.interval,
+            easeFactor: result.easeFactor,
+            repetitions: result.repetitions,
+            lastReviewedAt: Date.now(),
+          });
+        } catch {}
+
+        // Sync to server in background
+        saveReview(card.id, rating, current).catch(() => {});
+      })();
     },
-    [card, userId]
+    [card, state.index, userId]
   );
 
   const undo = useCallback(async () => {
@@ -145,7 +154,8 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
 
     dispatch({ type: "UNDO" });
 
-    const previous = entry.previousReview;
+    const previous = previousReviewsRef.current.get(entry.index) ?? null;
+    previousReviewsRef.current.delete(entry.index);
     try { await undoReviewLocal(undoneCard.id, userId, previous); } catch {}
 
     const snapshot: ReviewSnapshot | null = previous

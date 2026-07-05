@@ -26,12 +26,12 @@ test.describe("Anki import", () => {
     await expect(page.locator(".card-item", { hasText: "wǒ - 我" })).toBeVisible();
   });
 
-  test("rejects a non-.apkg file", async ({ page }) => {
+  test("rejects an unsupported file type", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
 
-    // Reuse the SPEC.md file as an arbitrary non-.apkg upload.
+    // Reuse the SPEC.md file as an arbitrary unsupported upload.
     await dashboard.importFileInput.setInputFiles(path.resolve(__dirname, "../SPEC.md"));
-    await expect(dashboard.importStatusLabel).toHaveText(/must be a \.apkg file/i);
+    await expect(dashboard.importStatusLabel).toHaveText(/must be a \.apkg or \.txt file/i);
   });
 });
