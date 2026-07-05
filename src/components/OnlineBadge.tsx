@@ -11,12 +11,18 @@ const CONFIG = {
 };
 
 export function OnlineBadge() {
-  const { status, queueLength } = useSyncStatus();
+  const { status, queueLength, triggerSync } = useSyncStatus();
   const { dot, label } = CONFIG[status];
   const showCount = queueLength > 0 && (status === "pending" || status === "syncing");
+  const canRetry = status === "pending" || status === "error";
 
   return (
-    <span className="online-badge">
+    <span
+      className="online-badge"
+      onClick={canRetry ? () => triggerSync() : undefined}
+      style={canRetry ? { cursor: "pointer" } : undefined}
+      title={canRetry ? "Tap to retry sync" : undefined}
+    >
       <span className="online-dot" style={{ background: dot }} />
       {label}{showCount ? ` (${queueLength})` : ""}
     </span>
