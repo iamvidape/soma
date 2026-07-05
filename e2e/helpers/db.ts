@@ -89,6 +89,28 @@ export async function findReviewsWithCard(userId: string, deckId: string): Promi
   return rows;
 }
 
+export interface ReviewRow {
+  id: string;
+  cardId: string;
+  userId: string;
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
+}
+
+export async function findReviewForCard(cardId: string, userId: string): Promise<ReviewRow | null> {
+  const { rows } = await pool.query(
+    `SELECT id, "cardId", "userId", interval, "easeFactor" AS "easeFactor", repetitions
+     FROM "Review" WHERE "cardId" = $1 AND "userId" = $2`,
+    [cardId, userId]
+  );
+  return rows[0] ?? null;
+}
+
+export async function setReviewDueNow(cardId: string, userId: string): Promise<void> {
+  await pool.query('UPDATE "Review" SET "dueDate" = now() WHERE "cardId" = $1 AND "userId" = $2', [cardId, userId]);
+}
+
 export async function createReview(input: {
   id: string;
   cardId: string;
@@ -99,18 +121,27 @@ export async function createReview(input: {
   repetitions: number;
   lastReviewedAt: Date;
 }): Promise<void> {
+  // "Review.dueDate"/"lastReviewedAt" are `timestamp without time zone`.
+  // node-postgres's default serialization for a bound JS Date parameter on
+  // such a column doesn't line up with how Prisma (which the app itself
+  // uses for every real read/write) interprets the stored value — passing
+  // a raw Date here was confirmed to land ~2 hours off from what the app
+  // reads back, at least at this machine's UTC+2 offset. Casting through
+  // `timestamptz` (which unambiguously parses the ISO string as an absolute
+  // instant) and back via `AT TIME ZONE 'UTC'` stores it the same way
+  // Prisma does.
   await pool.query(
     `INSERT INTO "Review" (id, "cardId", "userId", "dueDate", interval, "easeFactor", repetitions, "lastReviewedAt")
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+     VALUES ($1, $2, $3, $4::timestamptz AT TIME ZONE 'UTC', $5, $6, $7, $8::timestamptz AT TIME ZONE 'UTC')`,
     [
       input.id,
       input.cardId,
       input.userId,
-      input.dueDate,
+      input.dueDate.toISOString(),
       input.interval,
       input.easeFactor,
       input.repetitions,
-      input.lastReviewedAt,
+      input.lastReviewedAt.toISOString(),
     ]
   );
 }

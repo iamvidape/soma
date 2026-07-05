@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * Waits for the POST triggered by `action` (a Server Action submit) to
@@ -19,4 +19,17 @@ export async function withMutationResponse(page: Page, action: () => Promise<voi
     }),
     action(),
   ]);
+}
+
+/**
+ * Navigates to the dashboard and waits for SyncProvider to finish seeding
+ * Dexie from Postgres. Needed before visiting /study whenever the "current"
+ * review state was written directly to Postgres (bypassing the app) rather
+ * than through a real local rating — StudyLoader reads from Dexie on its own
+ * mount effect with no ordering guarantee relative to SyncProvider's async
+ * reseed, so without this wait it can read stale/empty local data.
+ */
+export async function syncFromServer(page: Page) {
+  await page.goto("/");
+  await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
 }
