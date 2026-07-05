@@ -30,6 +30,11 @@ export class StudyPage {
     await expect(this.page.locator(".card-slot")).not.toHaveCount(2);
   }
 
+  /** Undoes the most recent rating, whether shown in the header or on the session-complete screen. */
+  async undo() {
+    await this.page.getByRole("button", { name: /undo/i }).click();
+  }
+
   get progressLabel() {
     return this.page.locator(".progress-label");
   }
