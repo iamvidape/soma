@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { calculateStreak } from "@/lib/stats";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 
 async function getDashboardData(userId: string) {
@@ -48,23 +49,7 @@ async function getDashboardData(userId: string) {
     )
   );
 
-  // Streak — consecutive days (UTC) ending today
-  const daySet = new Set(
-    reviewDates.map((r) => r.lastReviewedAt!.toISOString().split("T")[0])
-  );
-  const sortedDays = [...daySet].sort().reverse();
-  let streak = 0;
-  let expected = new Date().toISOString().split("T")[0];
-  for (const day of sortedDays) {
-    if (day === expected) {
-      streak++;
-      const d = new Date(expected + "T00:00:00Z");
-      d.setUTCDate(d.getUTCDate() - 1);
-      expected = d.toISOString().split("T")[0];
-    } else if (day < expected) {
-      break;
-    }
-  }
+  const streak = calculateStreak(reviewDates.map((r) => r.lastReviewedAt!));
 
   // Per-deck new / learning / review breakdown
   const deckStatsMap: Record<string, { newCount: number; learningCount: number; reviewCount: number }> = {};

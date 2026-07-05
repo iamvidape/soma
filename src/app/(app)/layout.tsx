@@ -40,12 +40,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </svg>
             <span>Study</span>
           </Link>
-          <button className="bottom-nav-item">
+          <Link href="/stats" className="bottom-nav-item">
             <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path d="M3 3h18v18H3zM9 9h6M9 13h6" />
             </svg>
             <span>Stats</span>
-          </button>
+          </Link>
           <SignOutButton />
         </nav>
       </div>
