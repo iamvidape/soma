@@ -87,10 +87,10 @@ const CARD_VARIANTS = {
 };
 
 const RATING_CONFIG = {
-  again: { label: "Again", key: "1", color: "var(--rust)",      border: "rgba(179,74,42,0.33)"  },
+  again: { label: "Again", key: "1", color: "#c87457",          border: "rgba(200,116,87,0.4)"  },
   hard:  { label: "Hard",  key: "2", color: "var(--amber)",     border: "rgba(200,147,26,0.33)" },
-  good:  { label: "Good",  key: "3", color: "var(--sage-soft)", border: "rgba(168,196,174,0.4)" },
-  easy:  { label: "Easy",  key: "4", color: "var(--ink-400)",   border: "rgba(154,135,64,0.33)" },
+  good:  { label: "Good",  key: "3", color: "var(--green-soft)", border: "rgba(156,201,138,0.4)" },
+  easy:  { label: "Easy",  key: "4", color: "var(--sage-soft)",  border: "rgba(168,196,174,0.4)" },
 } as const;
 
 export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: string }) {
