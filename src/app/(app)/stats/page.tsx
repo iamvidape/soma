@@ -4,7 +4,7 @@ import { calculateStreak, bucketByDay } from "@/lib/stats";
 import { cutoffDayIndex, dayIndexToDate } from "@/lib/day-cutoff";
 import { StatsClient, type UpcomingBucket } from "@/components/stats/StatsClient";
 
-const UPCOMING_DAYS = 14;
+const UPCOMING_DAYS = 7;
 
 function formatUpcomingLabel(date: Date, offset: number): string {
   if (offset === 0) return "Now";
@@ -48,20 +48,22 @@ async function getStatsData(userId: string) {
       cards: [],
     });
   }
+  const laterBucket: UpcomingBucket = { key: "later", label: "Later", count: 0, cards: [] };
 
   for (const card of cards) {
     const due = card.reviews[0]?.dueDate ?? null;
     const entry = { id: card.id, front: card.front, back: card.back, deckName: card.deck.name };
 
     // Cards not yet due (or with no review at all) land in "Now"; everything
-    // else buckets by how many cutoff-days out its due date falls, dropping
-    // anything beyond the window shown.
+    // else buckets by how many cutoff-days out its due date falls. Anything
+    // more than a week out is lumped into a single "Later" bucket instead of
+    // a separate line per day.
     const offset = due && due > now ? Math.max(0, cutoffDayIndex(due) - todayIdx) : 0;
-    if (offset < UPCOMING_DAYS) {
-      buckets[offset].count++;
-      buckets[offset].cards.push(entry);
-    }
+    const bucket = offset < UPCOMING_DAYS ? buckets[offset] : laterBucket;
+    bucket.count++;
+    bucket.cards.push(entry);
   }
+  buckets.push(laterBucket);
 
   return { streak, totalReviewedLast30, dailyActivity, upcoming: buckets };
 }
