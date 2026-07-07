@@ -544,7 +544,7 @@ body::before {
   text-align: center;
 }
 .import-label { font-family: var(--font-serif); font-style: italic; font-size: 0.875rem; color: var(--ink-400); margin-bottom: 0.25rem; }
-.import-sub { font-family: var(--font-mono); font-size: 0.65rem; color: var(--ink-600); }
+.import-sub { font-family: var(--font-mono); font-size: 0.65rem; color: rgba(154, 135, 64, 0.55); }
 .amber-link { color: var(--amber); cursor: pointer; }
 .amber-link:hover { opacity: 0.75; }
 
