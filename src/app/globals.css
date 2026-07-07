@@ -127,7 +127,10 @@ body::before {
   border-radius: 2px;
   padding: 0.65rem 0.875rem;
   font-family: var(--font-sans);
-  font-size: 0.875rem;
+  /* iOS Safari auto-zooms the viewport on focus for inputs under 16px, and
+     since navigation after login is a client-side router.push (not a full
+     reload), that zoomed-in state carries over onto the next page too. */
+  font-size: 1rem;
   color: var(--ink-50);
   outline: none;
   transition: border-color 0.15s;
