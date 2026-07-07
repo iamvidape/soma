@@ -8,12 +8,14 @@ interface SyncContextValue {
   status: SyncStatus;
   queueLength: number;
   triggerSync: () => void;
+  reseed: () => Promise<void>;
 }
 
 export const SyncContext = createContext<SyncContextValue>({
   status: "synced",
   queueLength: 0,
   triggerSync: () => {},
+  reseed: async () => {},
 });
 
 export function useSyncStatus() {

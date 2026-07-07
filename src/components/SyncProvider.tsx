@@ -82,59 +82,61 @@ export function SyncProvider({ children, userId }: { children: React.ReactNode; 
     }
   }, [router]);
 
+  // Pulls the server's current decks/cards/reviews into Dexie. Used on mount,
+  // and also callable on demand for mutations that only write server-side
+  // (e.g. Anki/text import goes straight to Prisma with no local Dexie write)
+  // so the local-first study session doesn't read stale/missing data until
+  // the next full app reload remounts this provider.
+  const reseed = useCallback(async () => {
+    if (!navigator.onLine) {
+      setStatus("offline");
+      return;
+    }
+    try {
+      const res = await fetch("/api/data");
+      if (!res.ok) return;
+      const data: ApiData = await res.json();
+
+      const db = getLocalDB();
+
+      const localDecks: LocalDeck[] = data.decks.map((d) => ({
+        id: d.id, userId: d.userId, name: d.name, description: d.description,
+        createdAt: new Date(d.createdAt).getTime(),
+        updatedAt: new Date(d.updatedAt).getTime(),
+        syncedAt: d.syncedAt ? new Date(d.syncedAt).getTime() : null,
+      }));
+
+      const localCards: LocalCard[] = data.cards.map((c) => ({
+        id: c.id, deckId: c.deckId, front: c.front, back: c.back,
+        createdAt: new Date(c.createdAt).getTime(),
+        updatedAt: new Date(c.updatedAt).getTime(),
+        syncedAt: c.syncedAt ? new Date(c.syncedAt).getTime() : null,
+      }));
+
+      const localReviews: LocalReview[] = data.reviews.map((r) => ({
+        id: r.id, cardId: r.cardId, userId: r.userId,
+        dueDate: new Date(r.dueDate).getTime(),
+        interval: r.interval, easeFactor: r.easeFactor, repetitions: r.repetitions,
+        lastReviewedAt: r.lastReviewedAt ? new Date(r.lastReviewedAt).getTime() : null,
+        syncedAt: r.syncedAt ? new Date(r.syncedAt).getTime() : null,
+      }));
+
+      await Promise.all([
+        db.decks.bulkPut(localDecks),
+        db.cards.bulkPut(localCards),
+        reconcileReviews(userId, localReviews),
+      ]);
+
+      await flushQueue();
+    } catch {
+      setStatus(navigator.onLine ? "error" : "offline");
+    }
+  }, [userId, flushQueue]);
+
   // Seed Dexie from server on mount, then flush queue
   useEffect(() => {
-    let cancelled = false;
-
-    async function seedAndSync() {
-      if (!navigator.onLine) {
-        setStatus("offline");
-        return;
-      }
-      try {
-        const res = await fetch("/api/data");
-        if (!res.ok || cancelled) return;
-        const data: ApiData = await res.json();
-
-        const db = getLocalDB();
-
-        const localDecks: LocalDeck[] = data.decks.map((d) => ({
-          id: d.id, userId: d.userId, name: d.name, description: d.description,
-          createdAt: new Date(d.createdAt).getTime(),
-          updatedAt: new Date(d.updatedAt).getTime(),
-          syncedAt: d.syncedAt ? new Date(d.syncedAt).getTime() : null,
-        }));
-
-        const localCards: LocalCard[] = data.cards.map((c) => ({
-          id: c.id, deckId: c.deckId, front: c.front, back: c.back,
-          createdAt: new Date(c.createdAt).getTime(),
-          updatedAt: new Date(c.updatedAt).getTime(),
-          syncedAt: c.syncedAt ? new Date(c.syncedAt).getTime() : null,
-        }));
-
-        const localReviews: LocalReview[] = data.reviews.map((r) => ({
-          id: r.id, cardId: r.cardId, userId: r.userId,
-          dueDate: new Date(r.dueDate).getTime(),
-          interval: r.interval, easeFactor: r.easeFactor, repetitions: r.repetitions,
-          lastReviewedAt: r.lastReviewedAt ? new Date(r.lastReviewedAt).getTime() : null,
-          syncedAt: r.syncedAt ? new Date(r.syncedAt).getTime() : null,
-        }));
-
-        await Promise.all([
-          db.decks.bulkPut(localDecks),
-          db.cards.bulkPut(localCards),
-          reconcileReviews(userId, localReviews),
-        ]);
-
-        if (!cancelled) await flushQueue();
-      } catch {
-        if (!cancelled) setStatus(navigator.onLine ? "error" : "offline");
-      }
-    }
-
-    seedAndSync();
-    return () => { cancelled = true; };
-  }, [userId, flushQueue]);
+    reseed();
+  }, [reseed]);
 
   // Online/offline listeners
   useEffect(() => {
@@ -169,7 +171,7 @@ export function SyncProvider({ children, userId }: { children: React.ReactNode; 
   }, [flushQueue]);
 
   return (
-    <SyncContext.Provider value={{ status, queueLength, triggerSync: flushQueue }}>
+    <SyncContext.Provider value={{ status, queueLength, triggerSync: flushQueue, reseed }}>
       {children}
     </SyncContext.Provider>
   );

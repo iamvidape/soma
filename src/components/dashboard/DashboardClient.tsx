@@ -42,7 +42,7 @@ export function DashboardClient({
   studiedToday: number;
 }) {
   const router = useRouter();
-  const { triggerSync } = useSyncStatus();
+  const { triggerSync, reseed } = useSyncStatus();
   const [decks, setDecks] = useState<DeckRow[]>(initialDecks);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -255,7 +255,10 @@ export function DashboardClient({
         })}
       </div>
 
-      <ImportZone decks={decks.map((d) => ({ id: d.id, name: d.name }))} onImported={() => router.refresh()} />
+      <ImportZone
+        decks={decks.map((d) => ({ id: d.id, name: d.name }))}
+        onImported={() => { reseed(); router.refresh(); }}
+      />
     </div>
   );
 }
