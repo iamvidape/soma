@@ -718,6 +718,28 @@ body::before {
 .icon-btn:hover { color: var(--ink-400); }
 .icon-btn.danger:hover { color: var(--rust); }
 
+/* ── App loading screen ──────────────────────────────────── */
+@keyframes pulse-fade {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+.loading-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-900);
+}
+.loading-wordmark {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  color: var(--amber);
+  animation: pulse-fade 1.6s ease-in-out infinite;
+}
+
 /* ── Study session ───────────────────────────────────────── */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(10px); }
