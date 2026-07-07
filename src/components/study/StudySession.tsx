@@ -89,7 +89,7 @@ const CARD_VARIANTS = {
 const RATING_CONFIG = {
   again: { label: "Again", key: "1", color: "var(--rust)",      border: "rgba(179,74,42,0.33)"  },
   hard:  { label: "Hard",  key: "2", color: "var(--amber)",     border: "rgba(200,147,26,0.33)" },
-  good:  { label: "Good",  key: "3", color: "var(--sage)",      border: "rgba(61,92,68,0.33)"   },
+  good:  { label: "Good",  key: "3", color: "var(--sage-soft)", border: "rgba(168,196,174,0.4)" },
   easy:  { label: "Easy",  key: "4", color: "var(--ink-400)",   border: "rgba(154,135,64,0.33)" },
 } as const;
 
