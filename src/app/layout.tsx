@@ -30,8 +30,10 @@ export const metadata: Metadata = {
   // it specifically wants an apple-touch-icon link tag. Without one, iOS
   // silently falls back to a generated icon (the page title's first letter
   // on a plain background) instead of erroring, which is easy to miss.
+  // Uses a dedicated, padded icon rather than icon-192.png — iOS applies its
+  // own rounded-square mask on top, which crops content sitting near the edge.
   icons: {
-    apple: "/icon-192.png",
+    apple: "/apple-icon.png",
   },
   appleWebApp: {
     capable: true,
