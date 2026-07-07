@@ -30,6 +30,11 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Soma",
+    // iOS's automatic splash generation from the manifest's background_color
+    // is unreliable in practice and often just shows a plain white screen on
+    // launch. A single startupImage (no media query) is used by iOS as a
+    // generic launch screen across device sizes.
+    startupImage: "/apple-splash.png",
   },
 };
 
