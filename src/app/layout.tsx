@@ -26,6 +26,13 @@ export const metadata: Metadata = {
   title: "Soma",
   description: "Spaced-repetition flashcards",
   manifest: "/manifest.webmanifest",
+  // iOS's "Add to Home Screen" doesn't reliably read the manifest's icons —
+  // it specifically wants an apple-touch-icon link tag. Without one, iOS
+  // silently falls back to a generated icon (the page title's first letter
+  // on a plain background) instead of erroring, which is easy to miss.
+  icons: {
+    apple: "/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
