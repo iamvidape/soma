@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures/auth";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DeckDetailPage } from "./pages/DeckDetailPage";
 import { findDeckByName } from "./helpers/db";
+import { waitForAppShellSettled } from "./helpers/wait";
 
 function deckName() {
   return `Offline ${randomUUID().slice(0, 8)}`;
@@ -86,6 +88,9 @@ test.describe("offline mode", () => {
     expect(await findDeckByName(name)).toBeNull();
 
     await page.context().setOffline(false);
+    // The sync that follows calls router.refresh(), which can hit the same
+    // transient app-shell-rendered-twice window as a fresh navigation.
+    await waitForAppShellSettled(page);
     await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
 
     const remoteDeck = await findDeckByName(name);
@@ -95,10 +100,44 @@ test.describe("offline mode", () => {
     expect(queueAfterSync.some((e) => e.table === "Deck" && JSON.parse(e.payload).name === name)).toBe(false);
   });
 
-  // NOTE: a "reload the whole app shell while offline" scenario needs the
-  // Serwist service worker, which is disabled under `next dev` (Turbopack) —
-  // see SPEC.md's PWA section. That requires a `next build --webpack && next
-  // start` server instead of the dev server this config drives, so it's left
-  // out of this suite for now rather than asserting something the dev server
-  // can never do.
+  test("can navigate back into study mode after a hard reload while offline (SOM-26)", async ({ page }) => {
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    // The very first load can't be service-worker-controlled — no SW exists
+    // yet to intercept it, it's what *registers* the SW. Wait for it to
+    // finish installing and (via clientsClaim) actually take control of this
+    // page, then re-navigate so "/" itself gets cached by navigationHandler.
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+    await dashboard.goto();
+
+    const name = deckName();
+    await dashboard.createDeck(name);
+    await dashboard.openDeck(name);
+    const detail = new DeckDetailPage(page);
+    await detail.addCard("un", "one");
+    const deckId = page.url().split("/").pop()!;
+
+    // A hard navigation (not a client-side Link transition) so the service
+    // worker's navigationHandler actually caches this exact URL — this is
+    // what a real "still mid-flight, tab was suspended and reloaded" reload
+    // looks like, and the scenario that regressed under NetworkOnly.
+    await page.goto(`/study?decks=${deckId}`);
+    await expect(page.locator(".card-content").first()).toBeVisible();
+
+    await page.context().setOffline(true);
+
+    // Navigating out of study mode (e.g. the back link) while offline.
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: /you're offline/i })).not.toBeVisible();
+    await expect(page.locator(".hero-card")).toBeVisible();
+
+    // The actual regression: going back into study mode should NOT strand
+    // the user on the static offline placeholder.
+    await page.goto(`/study?decks=${deckId}`);
+    await expect(page.getByRole("heading", { name: /you're offline/i })).not.toBeVisible();
+    await expect(page.locator(".card-content").first()).toBeVisible();
+
+    await page.context().setOffline(false);
+  });
 });
