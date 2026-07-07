@@ -1,17 +1,12 @@
 import type { Page } from "@playwright/test";
-import { withMutationResponse } from "../helpers/wait";
+import { withMutationResponse, waitForAppShellSettled } from "../helpers/wait";
 
 export class DashboardPage {
   constructor(private readonly page: Page) {}
 
   async goto() {
     await this.page.goto("/");
-    // On initial load there's a brief window (observed pre-existing on main,
-    // unrelated to any particular feature) where the app shell is present
-    // twice in the DOM — real users never perceive it (it resolves within
-    // ~150ms), but a script interacting immediately after goto() can hit it
-    // and trip Playwright's strict-mode element-count checks. Wait it out.
-    await this.page.waitForFunction(() => document.querySelectorAll("main").length === 1);
+    await waitForAppShellSettled(this.page);
   }
 
   async createDeck(name: string) {

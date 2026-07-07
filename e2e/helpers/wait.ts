@@ -33,3 +33,14 @@ export async function syncFromServer(page: Page) {
   await page.goto("/");
   await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
 }
+
+/**
+ * Waits out a brief (pre-existing, unrelated to any particular route) window
+ * right after a page load where the app shell is present twice in the DOM —
+ * real users never perceive it (it resolves within ~150ms), but a script
+ * interacting immediately after goto() can hit it and trip Playwright's
+ * strict-mode element-count checks.
+ */
+export async function waitForAppShellSettled(page: Page) {
+  await page.waitForFunction(() => document.querySelectorAll("main").length === 1);
+}

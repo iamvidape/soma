@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { test, expect } from "./fixtures/auth";
 import { DashboardPage } from "./pages/DashboardPage";
+import { waitForAppShellSettled } from "./helpers/wait";
 
 function deckName() {
   return `Nav ${randomUUID().slice(0, 8)}`;
@@ -15,6 +16,7 @@ test.describe("bottom nav", () => {
     await expect(nav.getByText("Home").locator("..")).toHaveClass(/active/);
 
     await page.goto("/stats");
+    await waitForAppShellSettled(page);
     await expect(nav.getByText("Home").locator("..")).not.toHaveClass(/active/);
     await expect(nav.getByText("Stats").locator("..")).toHaveClass(/active/);
   });
