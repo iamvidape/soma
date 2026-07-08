@@ -19,7 +19,10 @@ export function sm2(rating: Rating, current: ReviewState): SM2Result {
 
   switch (rating) {
     case "again":
-      interval = 1;
+      // 0, not 1: an "again" card must come back due *today* (immediately,
+      // in cutoff-boundary terms) so it resurfaces this session/day instead
+      // of vanishing until tomorrow's cutoff.
+      interval = 0;
       repetitions = 0;
       easeFactor = Math.max(MIN_EASE, easeFactor - 0.2);
       break;

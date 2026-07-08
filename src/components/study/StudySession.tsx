@@ -20,12 +20,17 @@ export interface StudyCard {
 }
 
 interface HistoryEntry {
-  index: number;
+  position: number;
   rating: Rating;
+  queueLengthBefore: number;
 }
 
 interface SessionState {
-  index: number;
+  // Indices into the `cards` prop. Starts as [0..cards.length-1]; an "again"
+  // rating appends the card's index again so it comes back up before the
+  // session ends, instead of only becoming due at tomorrow's cutoff.
+  queue: number[];
+  position: number;
   isFlipped: boolean;
   counts: Record<Rating, number>;
   done: boolean;
@@ -36,20 +41,23 @@ interface SessionState {
 type Action =
   | { type: "FLIP" }
   | { type: "RATE"; rating: Rating }
-  | { type: "UNDO" }
-  | { type: "RESET" };
+  | { type: "UNDO" };
 
 function reducer(state: SessionState, action: Action): SessionState {
   switch (action.type) {
     case "FLIP":
       return { ...state, isFlipped: true };
     case "RATE": {
-      const entry: HistoryEntry = { index: state.index, rating: action.rating };
+      const ratedCardIndex = state.queue[state.position];
+      const queue = action.rating === "again" ? [...state.queue, ratedCardIndex] : state.queue;
+      const position = state.position + 1;
+      const entry: HistoryEntry = { position: state.position, rating: action.rating, queueLengthBefore: state.queue.length };
       return {
         ...state,
+        queue,
+        position,
         isFlipped: false,
-        index: state.index + 1,
-        done: state.index + 1 >= (state as unknown as { total: number }).total,
+        done: position >= queue.length,
         counts: { ...state.counts, [action.rating]: state.counts[action.rating] + 1 },
         direction: 1,
         history: [...state.history, entry],
@@ -60,7 +68,8 @@ function reducer(state: SessionState, action: Action): SessionState {
       if (!last) return state;
       return {
         ...state,
-        index: last.index,
+        queue: state.queue.slice(0, last.queueLengthBefore),
+        position: last.position,
         isFlipped: false,
         done: false,
         counts: { ...state.counts, [last.rating]: Math.max(0, state.counts[last.rating] - 1) },
@@ -68,8 +77,6 @@ function reducer(state: SessionState, action: Action): SessionState {
         history: state.history.slice(0, -1),
       };
     }
-    case "RESET":
-      return { index: 0, isFlipped: false, counts: { again: 0, hard: 0, good: 0, easy: 0 }, done: false, direction: 1, history: [] };
   }
 }
 
@@ -95,22 +102,25 @@ const RATING_CONFIG = {
 
 export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: string }) {
   const router = useRouter();
+  // Unique cards in this deck's due set — distinct from state.queue.length,
+  // which grows as "again"-rated cards get requeued within the session.
   const total = cards.length;
 
-  const [state, dispatch] = useReducer(
-    (s: SessionState, a: Action) => {
-      const next = reducer(s, a);
-      if (a.type === "RATE") next.done = s.index + 1 >= total;
-      return next;
-    },
-    { index: 0, isFlipped: false, counts: { again: 0, hard: 0, good: 0, easy: 0 }, done: false, direction: 1, history: [] }
-  );
+  const [state, dispatch] = useReducer(reducer, cards, (initialCards): SessionState => ({
+    queue: initialCards.map((_, i) => i),
+    position: 0,
+    isFlipped: false,
+    counts: { again: 0, hard: 0, good: 0, easy: 0 },
+    done: false,
+    direction: 1,
+    history: [],
+  }));
 
-  const card = cards[state.index];
+  const card = cards[state.queue[state.position]];
   const canUndo = state.history.length > 0;
 
   // Snapshots of each card's review row from right before it was rated, keyed
-  // by session index, kept out of React state so capturing them doesn't
+  // by queue position, kept out of React state so capturing them doesn't
   // delay the RATE dispatch (which needs to fire synchronously — AnimatePresence
   // shares `isFlipped` across the exiting and entering card, so any delay
   // widens the window where both are visibly flipped at once).
@@ -119,7 +129,7 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
   const rate = useCallback(
     (rating: Rating) => {
       if (!card) return;
-      const ratedIndex = state.index;
+      const ratedPosition = state.position;
 
       dispatch({ type: "RATE", rating });
 
@@ -131,7 +141,7 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
         // can restore it exactly (or remove the row if it never had a review).
         let previousReview: LocalReview | null = null;
         try { previousReview = await getReview(card.id, userId); } catch {}
-        previousReviewsRef.current.set(ratedIndex, previousReview);
+        previousReviewsRef.current.set(ratedPosition, previousReview);
 
         let reviewId = nanoid();
         try {
@@ -152,19 +162,22 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
         saveReview(reviewId, card.id, rating, current).catch(() => {});
       })();
     },
-    [card, state.index, userId]
+    [card, state.position, userId]
   );
 
   const undo = useCallback(async () => {
     const entry = state.history[state.history.length - 1];
     if (!entry) return;
-    const undoneCard = cards[entry.index];
+    // Read through the pre-undo queue: the prefix up to entry.position is
+    // untouched by UNDO's truncation, so this still resolves to the card
+    // that was rated.
+    const undoneCard = cards[state.queue[entry.position]];
     if (!undoneCard) return;
 
     dispatch({ type: "UNDO" });
 
-    const previous = previousReviewsRef.current.get(entry.index) ?? null;
-    previousReviewsRef.current.delete(entry.index);
+    const previous = previousReviewsRef.current.get(entry.position) ?? null;
+    previousReviewsRef.current.delete(entry.position);
     try { await undoReviewLocal(undoneCard.id, userId, previous); } catch {}
 
     const snapshot: ReviewSnapshot | null = previous
@@ -177,7 +190,7 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
         }
       : null;
     undoReviewServer(undoneCard.id, snapshot).catch(() => {});
-  }, [state.history, cards, userId]);
+  }, [state.history, state.queue, cards, userId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -244,7 +257,9 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
     );
   }
 
-  const progress = state.index / total;
+  // Denominator is the live queue length, not `total` — it grows when an
+  // "again" rating requeues a card, so the bar reflects what's actually left.
+  const progress = state.position / state.queue.length;
 
   return (
     <div className="page-container">
@@ -261,7 +276,7 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
             />
           </div>
         </div>
-        <span className="progress-label">{state.index + 1} / {total}</span>
+        <span className="progress-label">{state.position + 1} / {state.queue.length}</span>
         {canUndo && (
           <button className="back-btn" onClick={undo} title="Undo last rating (U)">↺ Undo</button>
         )}
