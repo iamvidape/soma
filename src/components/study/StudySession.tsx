@@ -222,34 +222,24 @@ export function StudySession({ cards, userId }: { cards: StudyCard[]; userId: st
   }
 
   if (state.done) {
-    const { again, hard, good, easy } = state.counts;
     return (
       <div className="page-container study-complete animate-fade-up">
+        <div className="study-header">
+          <Link href="/" className="back-btn">← Back</Link>
+          <div style={{ flex: 1 }} />
+          {canUndo && (
+            <button className="back-btn" onClick={undo} title="Undo last rating (U)">↺ Undo</button>
+          )}
+        </div>
+
         <p className="eyebrow">Session complete</p>
         <h1 className="page-heading" style={{ fontStyle: "italic" }}>Well done.</h1>
         <div className="rule my-4" />
-        <p className="deck-meta" style={{ marginBottom: "2rem" }}>{total} cards reviewed. Return tomorrow.</p>
 
-        <div className="session-stats">
-          <div className="session-stat" style={{ borderColor: "rgba(61,92,68,0.33)", background: "rgba(61,92,68,0.07)" }}>
-            <p className="session-stat-num" style={{ color: "var(--sage)" }}>{good + easy}</p>
-            <p className="session-stat-label" style={{ color: "rgba(61,92,68,0.55)" }}>Good / Easy</p>
-          </div>
-          <div className="session-stat" style={{ borderColor: "rgba(200,147,26,0.33)", background: "rgba(200,147,26,0.07)" }}>
-            <p className="session-stat-num" style={{ color: "var(--amber)" }}>{hard}</p>
-            <p className="session-stat-label" style={{ color: "rgba(200,147,26,0.55)" }}>Hard</p>
-          </div>
-          <div className="session-stat" style={{ borderColor: "rgba(179,74,42,0.33)", background: "rgba(179,74,42,0.07)" }}>
-            <p className="session-stat-num" style={{ color: "var(--rust)" }}>{again}</p>
-            <p className="session-stat-label" style={{ color: "rgba(179,74,42,0.55)" }}>Again</p>
-          </div>
+        <div className="hero-count-row">
+          <span className="hero-count">{total}</span>
+          <span className="hero-count-unit">card{total !== 1 ? "s" : ""} reviewed. Return tomorrow.</span>
         </div>
-
-        {canUndo && (
-          <button className="back-btn" style={{ marginBottom: "0.75rem" }} onClick={undo}>
-            ↺ Undo last rating
-          </button>
-        )}
 
         <div className="rule my-5" />
         <Link href="/" className="begin-btn" style={{ textAlign: "center" }}>Back to decks</Link>

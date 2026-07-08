@@ -944,36 +944,6 @@ body::before {
   opacity: 0.5;
 }
 
-/* Session complete stats */
-.session-stats {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.session-stat {
-  flex: 1;
-  min-width: 80px;
-  border: 1.5px solid;
-  border-radius: 2px;
-  padding: 0.75rem 1rem;
-  text-align: center;
-}
-
-.session-stat-num {
-  font-family: var(--font-mono);
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.session-stat-label {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-top: 2px;
-}
-
 /* ── Mobile polish ───────────────────────────────────────── */
 
 /* Touch targets — ensure interactive elements are ≥ 44px */
