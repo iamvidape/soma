@@ -14,7 +14,15 @@ test.describe("Anki import", () => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
 
-    await dashboard.importFileInput.setInputFiles(FIXTURE);
+    // Import writes the deck/cards straight to Postgres — Dexie (and so the
+    // dashboard's deck list) only learns about them via SyncProvider's
+    // reseed, fired from onImported. Wait for that GET specifically, since
+    // the sync badge can already read "synced" from the initial page-load
+    // reseed and wouldn't reliably signal this one (SOM-21).
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/api/data") && r.request().method() === "GET"),
+      dashboard.importFileInput.setInputFiles(FIXTURE),
+    ]);
     await expect(dashboard.importStatusLabel).toHaveText(/import complete/i, { timeout: 15_000 });
     await expect(page.locator("p.import-sub:not(.amber-link)")).toContainText(`${DECK_NAME} — ${CARD_COUNT} cards`);
 

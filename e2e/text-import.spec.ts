@@ -22,7 +22,15 @@ test.describe("text file import", () => {
     });
 
     await page.getByPlaceholder("Deck name…").fill(name);
-    await page.getByRole("button", { name: "Import" }).click();
+    // Import writes the deck/cards straight to Postgres — Dexie (and so the
+    // dashboard's deck list) only learns about them via SyncProvider's
+    // reseed, fired from onImported. Wait for that GET specifically, since
+    // the sync badge can already read "synced" from the initial page-load
+    // reseed and wouldn't reliably signal this one (SOM-21).
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/api/data") && r.request().method() === "GET"),
+      page.getByRole("button", { name: "Import" }).click(),
+    ]);
 
     await expect(dashboard.importStatusLabel).toHaveText(/import complete/i, { timeout: 10_000 });
     await expect(page.locator("p.import-sub:not(.amber-link)")).toContainText(`${name} — 3 cards`);
