@@ -16,8 +16,16 @@ export class DashboardPage {
     await this.deckRow(name).waitFor();
   }
 
+  // .last(): the same transient app-shell double-render waitForAppShellSettled
+  // documents has turned up on several different descendants across this
+  // page (the sync badge, a breakdown pill, the import file input) — each
+  // its own strict-mode violation waiting to happen on a bare locator, since
+  // interaction methods like setInputFiles don't auto-retry past one the way
+  // expect().toContainText() does. .last() targets the newer-mounted,
+  // eventually-surviving instance and is a no-op in the normal (single-match)
+  // case, so it's applied here at the source rather than per call site.
   deckRow(name: string) {
-    return this.page.locator(".deck-row", { hasText: name });
+    return this.page.locator(".deck-row", { hasText: name }).last();
   }
 
   async toggleDeck(name: string) {
@@ -33,15 +41,15 @@ export class DashboardPage {
   }
 
   get dueCount() {
-    return this.page.locator(".hero-count");
+    return this.page.locator(".hero-count").last();
   }
 
   get streakBadge() {
-    return this.page.locator(".streak-badge");
+    return this.page.locator(".streak-badge").last();
   }
 
   get studiedToday() {
-    return this.page.locator(".studied-today");
+    return this.page.locator(".studied-today").last();
   }
 
   breakdownPill(deckName: string, kind: "new" | "learning" | "review") {
@@ -53,10 +61,10 @@ export class DashboardPage {
   }
 
   get importFileInput() {
-    return this.page.locator('.import-zone input[type="file"]');
+    return this.page.locator('.import-zone input[type="file"]').last();
   }
 
   get importStatusLabel() {
-    return this.page.locator(".import-label");
+    return this.page.locator(".import-label").last();
   }
 }

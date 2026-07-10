@@ -35,6 +35,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# .env.test holds only fixed, non-sensitive test-DB credentials for the
+# throwaway local/CI Docker Postgres (never the real database) — committed
+# so GitHub Actions has the same values Playwright uses locally.
+!.env.test
 
 # vercel
 .vercel

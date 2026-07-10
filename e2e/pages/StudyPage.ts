@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { waitForAppShellSettled } from "../helpers/wait";
 
 export type Rating = "again" | "hard" | "good" | "easy";
 
@@ -7,6 +8,7 @@ export class StudyPage {
 
   async goto(deckIds: string[]) {
     await this.page.goto(`/study?decks=${deckIds.join(",")}`);
+    await waitForAppShellSettled(this.page);
   }
 
   get cardContent() {
@@ -47,9 +49,8 @@ export class StudyPage {
     return this.page.getByRole("heading", { name: /well done/i });
   }
 
-  /** [goodOrEasy, hard, again] counts shown on the session-complete screen. */
-  sessionStat(kind: "goodOrEasy" | "hard" | "again") {
-    const index = { goodOrEasy: 0, hard: 1, again: 2 }[kind];
-    return this.page.locator(".session-stat-num").nth(index);
+  /** Total cards reviewed, shown on the session-complete screen. */
+  get sessionCompleteCount() {
+    return this.page.locator(".hero-count");
   }
 }

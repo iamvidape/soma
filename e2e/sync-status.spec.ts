@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures/auth";
 import { DashboardPage } from "./pages/DashboardPage";
-import { waitForAppShellSettled } from "./helpers/wait";
+import { waitForAppShellSettled, expectBadge } from "./helpers/wait";
 
 interface SyncQueueRecord {
   id: string;
@@ -49,7 +49,7 @@ test.describe("sync status", () => {
   test("a permanently-failing sync entry is discarded instead of blocking the badge forever", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
-    await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
+    await expectBadge(page, "synced");
 
     // Simulate a stale/orphaned queue entry — e.g. a card create left over
     // after its deck was deleted elsewhere. The server will reject this
@@ -68,7 +68,7 @@ test.describe("sync status", () => {
     // Reload, mirroring the user's own repro ("even after refreshing the app").
     await page.reload();
     await waitForAppShellSettled(page);
-    await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
+    await expectBadge(page, "synced");
 
     const queue = await readSyncQueue(page);
     expect(queue.some((e) => e.id === bogusId)).toBe(false);
@@ -77,7 +77,7 @@ test.describe("sync status", () => {
   test("the badge is clickable to retry after a failed sync, and reaches synced", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
-    await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
+    await expectBadge(page, "synced");
 
     // Simulate a transient network failure on sync requests — the queued
     // entry survives this (unlike the permanent-failure case above), so the
@@ -91,10 +91,10 @@ test.describe("sync status", () => {
     // this is the same trigger a real reconnect fires.
     await page.evaluate(() => window.dispatchEvent(new Event("online")));
     await waitForAppShellSettled(page);
-    await expect(page.locator(".online-badge")).toContainText("error", { timeout: 10_000 });
+    await expectBadge(page, "error", 10_000);
 
     await page.unroute("**/api/sync");
-    await page.locator(".online-badge").click();
-    await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
+    await page.locator(".online-badge").last().click();
+    await expectBadge(page, "synced");
   });
 });
