@@ -11,15 +11,14 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  // CI's default worker count (half the runner's CPUs) was the first time
-  // the full suite ever ran with true parallelism against one shared
-  // Postgres instance, and it surfaced a real cross-worker race (a
-  // Deck.create() unique-constraint violation, unrelated to the dev-server
-  // double-submit issue below) tracked in SOM-31. Forcing CI to a single
-  // worker sidesteps the race so the suite stays a reliable merge gate;
-  // local runs keep the default parallelism.
-  workers: process.env.CI ? 1 : undefined,
+  // Retries were CI-only, but a retry re-runs a failed test's body on the
+  // same worker-scoped account (e2e/fixtures/auth.ts) as the original
+  // attempt. For tests that create a fixed-name entity (e.g. anki-import.spec.ts's
+  // deck name comes from the .apkg fixture, not a random UUID), that turns
+  // a flake into a genuine duplicate instead of a clean re-run — tracked in
+  // SOM-31. Keeping retries off everywhere so a flaky test reports red
+  // instead of silently corrupting later assertions in the same run.
+  retries: 0,
   reporter: "html",
   globalSetup: "./e2e/global-setup.ts",
   use: {
