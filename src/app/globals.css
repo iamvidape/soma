@@ -299,7 +299,7 @@ body::before {
 .bottom-nav-item.active {
   color: var(--amber);
   background: rgba(200, 147, 26, 0.16);
-  border-radius: 10px;
+  border-radius: 2px;
   font-weight: 600;
 }
 .bottom-nav-item:hover:not(.active) { color: var(--ink-200); }
