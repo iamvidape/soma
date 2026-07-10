@@ -3,12 +3,12 @@ import { test, expect } from "./fixtures/auth";
 import { DashboardPage } from "./pages/DashboardPage";
 import { expectBadge } from "./helpers/wait";
 
-// Fixture is a real Anki export: one non-empty deck "Mandarin - vocabulary"
-// with 475 cards (a second "Default" deck is empty and gets filtered out
-// by the parser). See src/lib/anki-parser.ts.
-const FIXTURE = path.resolve(__dirname, "fixtures/test-anki-export.apkg");
-const DECK_NAME = "Mandarin - vocabulary";
-const CARD_COUNT = 475;
+// Fixture is a real, small Anki export: one non-empty deck
+// "Mandarin - expressions" with 31 cards (a second "Default" deck is empty
+// and gets filtered out by the parser). See src/lib/anki-parser.ts.
+const FIXTURE = path.resolve(__dirname, "fixtures/anki-test-file.apkg");
+const DECK_NAME = "Mandarin - expressions";
+const CARD_COUNT = 31;
 
 test.describe("Anki import", () => {
   test("importing a .apkg creates the deck and its cards", async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe("Anki import", () => {
     await expect(dashboard.breakdownPill(DECK_NAME, "new")).toHaveText(`${CARD_COUNT} new`, { timeout: 15_000 });
 
     await dashboard.openDeck(DECK_NAME);
-    await expect(page.locator(".card-item", { hasText: "wǒ - 我" })).toBeVisible();
+    await expect(page.locator(".card-item", { hasText: "See you later!" })).toBeVisible();
   });
 
   test("rejects an unsupported file type", async ({ page }) => {
