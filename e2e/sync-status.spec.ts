@@ -68,7 +68,13 @@ test.describe("sync status", () => {
     // Reload, mirroring the user's own repro ("even after refreshing the app").
     await page.reload();
     await waitForAppShellSettled(page);
-    await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
+    // .last(): discarding the bogus entry finishes asynchronously and can
+    // itself trigger a router.refresh() well after waitForAppShellSettled
+    // already returned, re-tripping the same transient double-render this
+    // helper guards against on the initial load. .last() targets the
+    // newer-mounted (eventually surviving) instance instead of hitting a
+    // strict-mode violation on whichever pair is present at that moment.
+    await expect(page.locator(".online-badge").last()).toContainText("synced", { timeout: 15_000 });
 
     const queue = await readSyncQueue(page);
     expect(queue.some((e) => e.id === bogusId)).toBe(false);

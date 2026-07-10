@@ -89,9 +89,13 @@ test.describe("offline mode", () => {
 
     await page.context().setOffline(false);
     // The sync that follows calls router.refresh(), which can hit the same
-    // transient app-shell-rendered-twice window as a fresh navigation.
+    // transient app-shell-rendered-twice window as a fresh navigation — and
+    // does so asynchronously, well after waitForAppShellSettled below
+    // returns, so it isn't guarded by that wait alone. .last() targets the
+    // newer-mounted (eventually surviving) instance instead of hitting a
+    // strict-mode violation on whichever pair is present at that moment.
     await waitForAppShellSettled(page);
-    await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
+    await expect(page.locator(".online-badge").last()).toContainText("synced", { timeout: 15_000 });
 
     const remoteDeck = await findDeckByName(name);
     expect(remoteDeck).not.toBeNull();
