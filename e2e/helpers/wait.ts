@@ -37,20 +37,18 @@ export async function syncFromServer(page: Page) {
 
 /**
  * Waits out a brief (pre-existing, unrelated to any particular route) window
- * right after a page load where the app shell is present twice in the DOM —
- * real users never perceive it (it resolves within ~150ms), but a script
- * interacting immediately after goto() can hit it and trip Playwright's
- * strict-mode element-count checks. Checks both <main> and the top-nav's
- * OnlineBadge: they're siblings in the layout, not nested, and don't always
- * collapse back to one instance at exactly the same tick — after a full
- * page.reload() in particular, one lagging behind the other was enough to
- * still trip a strict-mode check on whichever one hadn't settled yet.
+ * right after a page load where the whole app shell — src/app/(app)/layout.tsx's
+ * top-level `.app-shell` div, nav/badge/main/bottom-nav all together — is
+ * present twice in the DOM. Real users never perceive it (it resolves within
+ * ~150ms), but a script interacting immediately after goto() can hit it and
+ * trip Playwright's strict-mode element-count checks — and not just on
+ * `.online-badge`: it's turned up on a dashboard breakdown pill and an
+ * import file input too, different descendants each time. Checking the one
+ * shared ancestor instead of chasing individual descendants is the general
+ * fix rather than another one-off selector.
  */
 export async function waitForAppShellSettled(page: Page) {
-  await page.waitForFunction(() =>
-    document.querySelectorAll("main").length === 1 &&
-    document.querySelectorAll(".online-badge").length === 1
-  );
+  await page.waitForFunction(() => document.querySelectorAll(".app-shell").length === 1);
 }
 
 /**
