@@ -31,6 +31,7 @@ export async function withMutationResponse(page: Page, action: () => Promise<voi
  */
 export async function syncFromServer(page: Page) {
   await page.goto("/");
+  await waitForAppShellSettled(page);
   await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
 }
 

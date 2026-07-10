@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { waitForAppShellSettled } from "../helpers/wait";
 
 export type Rating = "again" | "hard" | "good" | "easy";
 
@@ -7,6 +8,7 @@ export class StudyPage {
 
   async goto(deckIds: string[]) {
     await this.page.goto(`/study?decks=${deckIds.join(",")}`);
+    await waitForAppShellSettled(this.page);
   }
 
   get cardContent() {
