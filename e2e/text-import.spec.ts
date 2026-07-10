@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { test, expect } from "./fixtures/auth";
 import { DashboardPage } from "./pages/DashboardPage";
 import { StudyPage } from "./pages/StudyPage";
+import { expectBadge } from "./helpers/wait";
 
 function deckName() {
   return `Text import ${randomUUID().slice(0, 8)}`;
@@ -11,6 +12,10 @@ test.describe("text file import", () => {
   test("creates a new deck from a front;back text file", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
+    // Let the initial mount reseed's own /api/data GET land before waiting
+    // for the import's — otherwise a still-in-flight initial GET can resolve
+    // during that wait and satisfy it prematurely (SOM-31).
+    await expectBadge(page, "synced");
 
     const name = deckName();
     const text = "soft;ruǎn\nhard;yìng\nwet;shī\n";
@@ -42,6 +47,7 @@ test.describe("text file import", () => {
   test("appends cards to an existing deck", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
+    await expectBadge(page, "synced");
 
     const name = deckName();
     await dashboard.createDeck(name);
@@ -62,6 +68,10 @@ test.describe("text file import", () => {
   test("cards from an imported deck are studyable without a reload (SOM-21)", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
+    // Let the initial mount reseed's own /api/data GET land before waiting
+    // for the import's — otherwise a still-in-flight initial GET can resolve
+    // during that wait and satisfy it prematurely (SOM-31).
+    await expectBadge(page, "synced");
 
     const name = deckName();
     const text = "soft;ruǎn\nhard;yìng\n";
@@ -98,6 +108,7 @@ test.describe("text file import", () => {
   test("rejects a file with no valid front;back lines", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
+    await expectBadge(page, "synced");
 
     await dashboard.importFileInput.setInputFiles({
       name: "empty.txt",

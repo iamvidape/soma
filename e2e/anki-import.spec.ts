@@ -1,6 +1,7 @@
 import path from "node:path";
 import { test, expect } from "./fixtures/auth";
 import { DashboardPage } from "./pages/DashboardPage";
+import { expectBadge } from "./helpers/wait";
 
 // Fixture is a real Anki export: one non-empty deck "Mandarin - vocabulary"
 // with 475 cards (a second "Default" deck is empty and gets filtered out
@@ -13,6 +14,10 @@ test.describe("Anki import", () => {
   test("importing a .apkg creates the deck and its cards", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
+    // Let the initial mount reseed's own /api/data GET land before waiting
+    // for the import's — otherwise a still-in-flight initial GET can resolve
+    // during that wait and satisfy it prematurely (SOM-31).
+    await expectBadge(page, "synced");
 
     // Import writes the deck/cards straight to Postgres — Dexie (and so the
     // dashboard's deck list) only learns about them via SyncProvider's
@@ -37,6 +42,7 @@ test.describe("Anki import", () => {
   test("rejects an unsupported file type", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
+    await expectBadge(page, "synced");
 
     // Reuse the SPEC.md file as an arbitrary unsupported upload.
     await dashboard.importFileInput.setInputFiles(path.resolve(__dirname, "../SPEC.md"));
