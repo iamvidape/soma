@@ -121,7 +121,9 @@ test.describe("undo", () => {
     const study = new StudyPage(page);
     await study.goto([deckId]);
     await study.flip();
-    await study.rate("again");
+    // Not "again": that requeues within the session instead of completing it
+    // (SOM-27), which isn't what this test is exercising.
+    await study.rate("good");
     await expect(study.sessionCompleteHeading).toBeVisible();
 
     await expect.poll(async () => findReviewForCard(card.id, user.id)).not.toBeNull();

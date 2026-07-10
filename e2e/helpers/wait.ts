@@ -40,8 +40,15 @@ export async function syncFromServer(page: Page) {
  * right after a page load where the app shell is present twice in the DOM —
  * real users never perceive it (it resolves within ~150ms), but a script
  * interacting immediately after goto() can hit it and trip Playwright's
- * strict-mode element-count checks.
+ * strict-mode element-count checks. Checks both <main> and the top-nav's
+ * OnlineBadge: they're siblings in the layout, not nested, and don't always
+ * collapse back to one instance at exactly the same tick — after a full
+ * page.reload() in particular, one lagging behind the other was enough to
+ * still trip a strict-mode check on whichever one hadn't settled yet.
  */
 export async function waitForAppShellSettled(page: Page) {
-  await page.waitForFunction(() => document.querySelectorAll("main").length === 1);
+  await page.waitForFunction(() =>
+    document.querySelectorAll("main").length === 1 &&
+    document.querySelectorAll(".online-badge").length === 1
+  );
 }

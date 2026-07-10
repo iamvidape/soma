@@ -49,26 +49,37 @@ test.describe("study session", () => {
     await expect(study.cardAnswer).toHaveText(PAIRS[front2]);
     await study.rate("again");
 
+    // Again requeues the card within the session (SOM-27) instead of ending
+    // it — it comes back around as a third slot before the session completes.
+    await expect(study.progressLabel).toHaveText("3 / 3");
+    await expect(study.sessionCompleteHeading).not.toBeVisible();
+    await expect(study.cardContent).toHaveText(front2);
+    await study.flip();
+    await expect(study.cardAnswer).toHaveText(PAIRS[front2]);
+    await study.rate("good");
+
     await expect(study.sessionCompleteHeading).toBeVisible();
-    await expect(study.sessionStat("goodOrEasy")).toHaveText("1");
-    await expect(study.sessionStat("hard")).toHaveText("0");
-    await expect(study.sessionStat("again")).toHaveText("1");
+    await expect(study.sessionCompleteCount).toHaveText("2");
 
     // Reviews sync to Postgres in the background — poll until both land.
     const user = await getUserByEmail(workerUser.email);
     await expect.poll(async () => countReviewsForUserAndDeck(user.id, deckId)).toBe(2);
 
     const reviews = await findReviewsWithCard(user.id, deckId);
-    const goodReview = reviews.find((r) => r.front === front1)!;
-    const againReview = reviews.find((r) => r.front === front2)!;
+    const firstCardReview = reviews.find((r) => r.front === front1)!;
+    const secondCardReview = reviews.find((r) => r.front === front2)!;
 
-    expect(goodReview.repetitions).toBe(1);
-    expect(goodReview.interval).toBe(3); // round(1 * 2.5)
-    expect(goodReview.easeFactor).toBeCloseTo(2.5);
+    expect(firstCardReview.repetitions).toBe(1);
+    expect(firstCardReview.interval).toBe(3); // round(1 * 2.5)
+    expect(firstCardReview.easeFactor).toBeCloseTo(2.5);
 
-    expect(againReview.repetitions).toBe(0);
-    expect(againReview.interval).toBe(1);
-    expect(againReview.easeFactor).toBeCloseTo(2.3);
+    // The card's baseline snapshot (StudySession's `cards` prop) is fixed for
+    // the whole session, so the requeue's final Good rating recomputes from
+    // the same fresh baseline as the first card — the intermediate Again
+    // never persists past the requeue's own upsert (single row per card).
+    expect(secondCardReview.repetitions).toBe(1);
+    expect(secondCardReview.interval).toBe(3); // round(1 * 2.5)
+    expect(secondCardReview.easeFactor).toBeCloseTo(2.5);
   });
 
   test("rating Hard and Easy produce the correct SM-2 math", async ({ page, workerUser }) => {
@@ -204,7 +215,8 @@ test.describe("study session", () => {
 
     await expect.poll(async () => (await findReviewForCard(card.id, user.id))?.repetitions).toBe(0);
     const review = await findReviewForCard(card.id, user.id);
-    expect(review!.interval).toBe(1);
+    // 0, not 1: an Again card is due again today, not tomorrow (SOM-27).
+    expect(review!.interval).toBe(0);
     // max(1.3, 1.35 - 0.2) = 1.3, not 1.15.
     expect(review!.easeFactor).toBeCloseTo(1.3);
   });
