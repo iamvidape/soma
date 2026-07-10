@@ -12,6 +12,14 @@ const CARD_COUNT = 475;
 
 test.describe("Anki import", () => {
   test("importing a .apkg creates the deck and its cards", async ({ page }) => {
+    // Default 30s can be tight for this one: the deck list is driven purely
+    // by DashboardClient's router.refresh() (see onImported in
+    // DashboardClient.tsx), not by the Dexie reseed below — confirmed via a
+    // local production-build repro that it resolves in ~2s under normal
+    // load, but CI's known resource contention (SOM-31) has been observed
+    // pushing that refresh well past 15s.
+    test.setTimeout(60_000);
+
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
     // Let the initial mount reseed's own /api/data GET land before waiting
@@ -31,12 +39,11 @@ test.describe("Anki import", () => {
     await expect(dashboard.importStatusLabel).toHaveText(/import complete/i, { timeout: 15_000 });
     await expect(page.locator("p.import-sub:not(.amber-link)")).toContainText(`${DECK_NAME} — ${CARD_COUNT} cards`);
 
-    // waitForResponse above only resolves once the reseed's GET response
-    // arrives — reconciling 475 cards into Dexie (plus everything else
-    // already in this shared test account) still happens after that, so
-    // the default 5s assertion timeout isn't always enough here.
+    // The deck row itself depends on onImported's router.refresh() (a
+    // separate round trip from the /api/data GET waited on above), which
+    // has been observed taking well over 15s under CI contention (SOM-31).
     const deckRow = dashboard.deckRow(DECK_NAME);
-    await expect(deckRow).toBeVisible({ timeout: 15_000 });
+    await expect(deckRow).toBeVisible({ timeout: 45_000 });
     await expect(dashboard.breakdownPill(DECK_NAME, "new")).toHaveText(`${CARD_COUNT} new`, { timeout: 15_000 });
 
     await dashboard.openDeck(DECK_NAME);
