@@ -65,9 +65,14 @@ test.describe("offline mode", () => {
   test("creating a deck offline persists locally and syncs once back online", async ({ page }) => {
     const dashboard = new DashboardPage(page);
     await dashboard.goto();
+    // Make sure the initial mount reseed has actually finished (reached
+    // "synced") before going offline — otherwise a still-"syncing…" badge
+    // instance from that reseed can persist alongside the new "offline" one
+    // (SOM-31).
+    await expectBadge(page, "synced");
 
     await page.context().setOffline(true);
-    await expect(page.locator(".online-badge")).toContainText("offline");
+    await expectBadge(page, "offline");
 
     // Not using DashboardPage.createDeck() here: it waits for the create
     // action's server response, which never arrives while offline — that's

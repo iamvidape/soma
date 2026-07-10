@@ -31,9 +31,13 @@ test.describe("Anki import", () => {
     await expect(dashboard.importStatusLabel).toHaveText(/import complete/i, { timeout: 15_000 });
     await expect(page.locator("p.import-sub:not(.amber-link)")).toContainText(`${DECK_NAME} — ${CARD_COUNT} cards`);
 
+    // waitForResponse above only resolves once the reseed's GET response
+    // arrives — reconciling 475 cards into Dexie (plus everything else
+    // already in this shared test account) still happens after that, so
+    // the default 5s assertion timeout isn't always enough here.
     const deckRow = dashboard.deckRow(DECK_NAME);
-    await expect(deckRow).toBeVisible();
-    await expect(dashboard.breakdownPill(DECK_NAME, "new")).toHaveText(`${CARD_COUNT} new`);
+    await expect(deckRow).toBeVisible({ timeout: 15_000 });
+    await expect(dashboard.breakdownPill(DECK_NAME, "new")).toHaveText(`${CARD_COUNT} new`, { timeout: 15_000 });
 
     await dashboard.openDeck(DECK_NAME);
     await expect(page.locator(".card-item", { hasText: "wǒ - 我" })).toBeVisible();
