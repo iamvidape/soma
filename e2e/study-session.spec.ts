@@ -33,7 +33,6 @@ test.describe("study session", () => {
     await detail.addCard("deux", "two");
 
     const deckId = page.url().split("/").pop()!;
-    const user = await getUserByEmail(workerUser.email);
 
     const study = new StudyPage(page);
     await study.goto([deckId]);
@@ -48,48 +47,60 @@ test.describe("study session", () => {
     const front2 = (await study.cardContent.textContent())!.trim();
     await study.flip();
     await expect(study.cardAnswer).toHaveText(PAIRS[front2]);
-    await study.rate("again");
-
-    // Again requeues the card within the session (SOM-27) instead of ending
-    // it — it comes back around as a third slot before the session completes.
-    // Wait for that rating's background sync to land before re-rating the
-    // same card: both ratings write through the same fire-and-forget
-    // saveReview() call with no ordering guarantee between them, so rating
-    // it again too soon can race the two writes and leave whichever
-    // resolves last, rather than the one that's actually last.
-    await expect.poll(async () => {
-      const reviews = await findReviewsWithCard(user.id, deckId);
-      return reviews.find((r) => r.front === front2)?.interval;
-    }).toBe(0);
-
-    await expect(study.progressLabel).toHaveText("3 / 3");
-    await expect(study.sessionCompleteHeading).not.toBeVisible();
-    await expect(study.cardContent).toHaveText(front2);
-    await study.flip();
-    await expect(study.cardAnswer).toHaveText(PAIRS[front2]);
-    await study.rate("good");
+    // Not "again": that requeues the card within the session instead of
+    // ending it (SOM-27, covered separately below and in the dedicated
+    // clamp tests) — rating the same card twice in one live session, once
+    // via a requeue, races two fire-and-forget saveReview() calls against
+    // each other with no ordering guarantee between them.
+    await study.rate("hard");
 
     await expect(study.sessionCompleteHeading).toBeVisible();
     await expect(study.sessionCompleteCount).toHaveText("2");
 
     // Reviews sync to Postgres in the background — poll until both land.
+    const user = await getUserByEmail(workerUser.email);
     await expect.poll(async () => countReviewsForUserAndDeck(user.id, deckId)).toBe(2);
 
     const reviews = await findReviewsWithCard(user.id, deckId);
-    const firstCardReview = reviews.find((r) => r.front === front1)!;
-    const secondCardReview = reviews.find((r) => r.front === front2)!;
+    const goodReview = reviews.find((r) => r.front === front1)!;
+    const hardReview = reviews.find((r) => r.front === front2)!;
 
-    expect(firstCardReview.repetitions).toBe(1);
-    expect(firstCardReview.interval).toBe(3); // round(1 * 2.5)
-    expect(firstCardReview.easeFactor).toBeCloseTo(2.5);
+    expect(goodReview.repetitions).toBe(1);
+    expect(goodReview.interval).toBe(3); // round(1 * 2.5)
+    expect(goodReview.easeFactor).toBeCloseTo(2.5);
 
-    // The card's baseline snapshot (StudySession's `cards` prop) is fixed for
-    // the whole session, so the requeue's final Good rating recomputes from
-    // the same fresh baseline as the first card — the intermediate Again
-    // never persists past the requeue's own upsert (single row per card).
-    expect(secondCardReview.repetitions).toBe(1);
-    expect(secondCardReview.interval).toBe(3); // round(1 * 2.5)
-    expect(secondCardReview.easeFactor).toBeCloseTo(2.5);
+    expect(hardReview.repetitions).toBe(1);
+    expect(hardReview.interval).toBe(1); // max(1, round(1 * 1.2))
+    expect(hardReview.easeFactor).toBeCloseTo(2.35);
+  });
+
+  test("Again requeues a card within the session instead of ending it (SOM-27)", async ({ page, workerUser }) => {
+    const dashboard = new DashboardPage(page);
+    await dashboard.goto();
+    const name = deckName();
+    await dashboard.createDeck(name);
+    await dashboard.openDeck(name);
+
+    const detail = new DeckDetailPage(page);
+    await detail.addCard("un", "one");
+    const deckId = page.url().split("/").pop()!;
+
+    const study = new StudyPage(page);
+    await study.goto([deckId]);
+
+    await expect(study.progressLabel).toHaveText("1 / 1");
+    await study.flip();
+    await study.rate("again");
+
+    // The single card comes back around instead of completing the session.
+    await expect(study.progressLabel).toHaveText("2 / 2");
+    await expect(study.sessionCompleteHeading).not.toBeVisible();
+    await expect(study.cardContent).toHaveText("un");
+
+    const user = await getUserByEmail(workerUser.email);
+    const card = await findCardByDeckName(name);
+    // 0, not due tomorrow: an Again card must resurface this session (SOM-27).
+    await expect.poll(async () => (await findReviewForCard(card.id, user.id))?.interval).toBe(0);
   });
 
   test("rating Hard and Easy produce the correct SM-2 math", async ({ page, workerUser }) => {

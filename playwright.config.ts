@@ -19,6 +19,14 @@ export default defineConfig({
   // SOM-31. Keeping retries off everywhere so a flaky test reports red
   // instead of silently corrupting later assertions in the same run.
   retries: 0,
+  // CI's default (half the runner's logical CPUs, typically 2) runs two
+  // full `next build && next start` instances' worth of concurrent
+  // browser+server load on a GitHub-hosted runner's modest CPU budget.
+  // That showed up as genuine resource contention, not just timing races:
+  // a 30s test timeout waiting on a button, and the known transient
+  // app-shell double-render (SOM-31) getting hit far more often under load
+  // than it was in a serial run. Local runs keep the default parallelism.
+  workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   globalSetup: "./e2e/global-setup.ts",
   use: {
