@@ -33,6 +33,7 @@ test.describe("study session", () => {
     await detail.addCard("deux", "two");
 
     const deckId = page.url().split("/").pop()!;
+    const user = await getUserByEmail(workerUser.email);
 
     const study = new StudyPage(page);
     await study.goto([deckId]);
@@ -51,6 +52,16 @@ test.describe("study session", () => {
 
     // Again requeues the card within the session (SOM-27) instead of ending
     // it — it comes back around as a third slot before the session completes.
+    // Wait for that rating's background sync to land before re-rating the
+    // same card: both ratings write through the same fire-and-forget
+    // saveReview() call with no ordering guarantee between them, so rating
+    // it again too soon can race the two writes and leave whichever
+    // resolves last, rather than the one that's actually last.
+    await expect.poll(async () => {
+      const reviews = await findReviewsWithCard(user.id, deckId);
+      return reviews.find((r) => r.front === front2)?.interval;
+    }).toBe(0);
+
     await expect(study.progressLabel).toHaveText("3 / 3");
     await expect(study.sessionCompleteHeading).not.toBeVisible();
     await expect(study.cardContent).toHaveText(front2);
@@ -62,7 +73,6 @@ test.describe("study session", () => {
     await expect(study.sessionCompleteCount).toHaveText("2");
 
     // Reviews sync to Postgres in the background — poll until both land.
-    const user = await getUserByEmail(workerUser.email);
     await expect.poll(async () => countReviewsForUserAndDeck(user.id, deckId)).toBe(2);
 
     const reviews = await findReviewsWithCard(user.id, deckId);

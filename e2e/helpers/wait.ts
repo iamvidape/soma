@@ -32,7 +32,7 @@ export async function withMutationResponse(page: Page, action: () => Promise<voi
 export async function syncFromServer(page: Page) {
   await page.goto("/");
   await waitForAppShellSettled(page);
-  await expect(page.locator(".online-badge")).toContainText("synced", { timeout: 15_000 });
+  await expectBadge(page, "synced");
 }
 
 /**
@@ -51,4 +51,18 @@ export async function waitForAppShellSettled(page: Page) {
     document.querySelectorAll("main").length === 1 &&
     document.querySelectorAll(".online-badge").length === 1
   );
+}
+
+/**
+ * Asserts the OnlineBadge eventually shows the given status text. Always use
+ * this (rather than a bare `.online-badge` locator) for any check that
+ * follows an async operation — a background sync's own router.refresh() can
+ * retrigger the app-shell double-render documented above at a point no
+ * synchronous pre-check (including waitForAppShellSettled) can guard
+ * against, so a bare locator can still hit a strict-mode violation on
+ * whichever pair happens to be present when polled. .last() targets the
+ * newer-mounted, eventually-surviving instance instead.
+ */
+export async function expectBadge(page: Page, text: string, timeout = 15_000) {
+  await expect(page.locator(".online-badge").last()).toContainText(text, { timeout });
 }

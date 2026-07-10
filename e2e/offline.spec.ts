@@ -4,7 +4,7 @@ import { test, expect } from "./fixtures/auth";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DeckDetailPage } from "./pages/DeckDetailPage";
 import { findDeckByName } from "./helpers/db";
-import { waitForAppShellSettled } from "./helpers/wait";
+import { waitForAppShellSettled, expectBadge } from "./helpers/wait";
 
 function deckName() {
   return `Offline ${randomUUID().slice(0, 8)}`;
@@ -88,14 +88,8 @@ test.describe("offline mode", () => {
     expect(await findDeckByName(name)).toBeNull();
 
     await page.context().setOffline(false);
-    // The sync that follows calls router.refresh(), which can hit the same
-    // transient app-shell-rendered-twice window as a fresh navigation — and
-    // does so asynchronously, well after waitForAppShellSettled below
-    // returns, so it isn't guarded by that wait alone. .last() targets the
-    // newer-mounted (eventually surviving) instance instead of hitting a
-    // strict-mode violation on whichever pair is present at that moment.
     await waitForAppShellSettled(page);
-    await expect(page.locator(".online-badge").last()).toContainText("synced", { timeout: 15_000 });
+    await expectBadge(page, "synced");
 
     const remoteDeck = await findDeckByName(name);
     expect(remoteDeck).not.toBeNull();
