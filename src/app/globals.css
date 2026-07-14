@@ -140,6 +140,20 @@ body::before {
 .field-input::placeholder { color: rgba(154, 135, 64, 0.35); }
 .field-input:focus { border-color: rgba(200, 147, 26, 0.55); }
 
+.deck-filter-select {
+  width: auto;
+  max-width: 100%;
+  padding: 0.4rem 1.75rem 0.4rem 0.65rem;
+  font-size: 0.85rem;
+  color: var(--ink-200);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%239a8740' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 0.7rem;
+}
+
 .auth-error {
   font-family: var(--font-mono);
   font-size: 0.7rem;
@@ -330,6 +344,13 @@ body::before {
   font-size: 1.875rem;
   font-weight: 700;
   color: var(--ink-50);
+}
+
+.masthead-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .rule {
