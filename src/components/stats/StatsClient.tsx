@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { DayBucket } from "@/lib/stats";
 
 export interface UpcomingCard {
@@ -22,14 +23,24 @@ interface StatsClientProps {
   totalReviewedLast30: number;
   dailyActivity: DayBucket[];
   upcoming: UpcomingBucket[];
+  decks: { id: string; name: string }[];
+  selectedDeckId?: string;
 }
 
 function formatAxisDate(iso: string): string {
   return new Date(iso + "T00:00:00Z").toLocaleDateString("en-US", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-export function StatsClient({ streak, totalReviewedLast30, dailyActivity, upcoming }: StatsClientProps) {
+export function StatsClient({
+  streak,
+  totalReviewedLast30,
+  dailyActivity,
+  upcoming,
+  decks,
+  selectedDeckId,
+}: StatsClientProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const router = useRouter();
 
   const maxDaily = Math.max(1, ...dailyActivity.map((d) => d.count));
   const maxUpcoming = Math.max(1, ...upcoming.map((b) => b.count));
@@ -38,7 +49,24 @@ export function StatsClient({ streak, totalReviewedLast30, dailyActivity, upcomi
     <div className="page-container">
       <div className="masthead">
         <p className="eyebrow">Progress</p>
-        <h1 className="page-heading">Stats.</h1>
+        <div className="masthead-title-row">
+          <h1 className="page-heading">Stats.</h1>
+          {decks.length > 0 && (
+            <select
+              className="field-input deck-filter-select"
+              value={selectedDeckId ?? ""}
+              onChange={(e) => {
+                const deckId = e.target.value;
+                router.push(deckId ? `/stats?deck=${deckId}` : "/stats");
+              }}
+            >
+              <option value="">All decks</option>
+              {decks.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <div className="rule my-4" />
       </div>
 

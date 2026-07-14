@@ -12,17 +12,17 @@ function formatUpcomingLabel(date: Date, offset: number): string {
   return date.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-async function getStatsData(userId: string) {
+async function getStatsData(userId: string, deckId?: string) {
   const now = new Date();
   const todayIdx = cutoffDayIndex(now);
 
   const [reviewDates, cards] = await Promise.all([
     db.review.findMany({
-      where: { userId, lastReviewedAt: { not: null } },
+      where: { userId, lastReviewedAt: { not: null }, ...(deckId ? { card: { deckId } } : {}) },
       select: { lastReviewedAt: true },
     }),
     db.card.findMany({
-      where: { deck: { userId } },
+      where: { deck: { userId, ...(deckId ? { id: deckId } : {}) } },
       select: {
         id: true,
         front: true,
@@ -68,10 +68,23 @@ async function getStatsData(userId: string) {
   return { streak, totalReviewedLast30, dailyActivity, upcoming: buckets };
 }
 
-export default async function StatsPage() {
+export default async function StatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deck?: string }>;
+}) {
   const session = await auth();
   const userId = session!.user.id;
-  const data = await getStatsData(userId);
+  const { deck: deckParam } = await searchParams;
 
-  return <StatsClient {...data} />;
+  const decks = await db.deck.findMany({
+    where: { userId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
+  const selectedDeckId = deckParam && decks.some((d) => d.id === deckParam) ? deckParam : undefined;
+  const data = await getStatsData(userId, selectedDeckId);
+
+  return <StatsClient {...data} decks={decks} selectedDeckId={selectedDeckId} />;
 }

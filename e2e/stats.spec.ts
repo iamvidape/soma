@@ -5,6 +5,7 @@ import { DeckDetailPage } from "./pages/DeckDetailPage";
 import { StudyPage } from "./pages/StudyPage";
 import { RegisterPage } from "./pages/AuthPages";
 import { getUserByEmail, countReviewsForUser } from "./helpers/db";
+import { waitForAppShellSettled } from "./helpers/wait";
 
 function deckName() {
   return `Stats ${randomUUID().slice(0, 8)}`;
@@ -92,5 +93,57 @@ test.describe("stats page (dedicated accounts)", () => {
     const futureRow = rows.nth(futureIndex);
     await futureRow.locator(".upcoming-row-header").click();
     await expect(futureRow).toContainText(ratedFront);
+  });
+
+  test("deck filter dropdown scopes the reviewed/30d count to the selected deck", async ({ page }) => {
+    const email = `e2e-stats-${randomUUID()}@soma.test`;
+    const register = new RegisterPage(page);
+    await register.goto();
+    await register.register(email, "TestPassword123!");
+    await page.waitForURL("/");
+
+    const dashboard = new DashboardPage(page);
+    const nameA = deckName();
+    const nameB = deckName();
+
+    await dashboard.createDeck(nameA);
+    await dashboard.openDeck(nameA);
+    await new DeckDetailPage(page).addCard("frontA", "backA");
+    const deckIdA = page.url().split("/").pop()!;
+
+    await dashboard.goto();
+    await dashboard.createDeck(nameB);
+    await dashboard.openDeck(nameB);
+    await new DeckDetailPage(page).addCard("frontB", "backB");
+    const deckIdB = page.url().split("/").pop()!;
+
+    const study = new StudyPage(page);
+    await study.goto([deckIdA]);
+    await study.flip();
+    await study.rate("good");
+    await study.goto([deckIdB]);
+    await study.flip();
+    await study.rate("good");
+
+    const user = await getUserByEmail(email);
+    await expect.poll(async () => countReviewsForUser(user.id)).toBe(2);
+
+    await page.goto("/stats");
+    await waitForAppShellSettled(page);
+    const reviewedStat = page.locator(".stats-kpi-row .stat-num").nth(1);
+    await expect(reviewedStat).toHaveText("2");
+
+    const select = page.locator(".deck-filter-select");
+    await select.selectOption({ label: nameA });
+    await expect(page).toHaveURL(new RegExp(`deck=${deckIdA}`));
+    await expect(reviewedStat).toHaveText("1");
+
+    await select.selectOption({ label: nameB });
+    await expect(page).toHaveURL(new RegExp(`deck=${deckIdB}`));
+    await expect(reviewedStat).toHaveText("1");
+
+    await select.selectOption({ label: "All decks" });
+    await expect(page).toHaveURL(/\/stats$/);
+    await expect(reviewedStat).toHaveText("2");
   });
 });
